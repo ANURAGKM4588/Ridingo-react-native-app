@@ -14,11 +14,70 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#FFFFFF" />
+    <script>
+      (function() {
+        try {
+          var pref = localStorage.getItem('ridingo_user_theme') || localStorage.getItem('ridingo_theme_pref') || 'light';
+          var isDark = false;
+          if (pref === 'dark') {
+            isDark = true;
+          } else if (pref === 'light') {
+            isDark = false;
+          } else if (pref === 'system') {
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          } else {
+            isDark = false;
+          }
+          var themeVal = isDark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', themeVal);
+          document.documentElement.style.colorScheme = themeVal;
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) {
+            metaTheme.setAttribute('content', isDark ? '#0A0A0B' : '#FFFFFF');
+          }
+
+          // Initialize clean full-screen preview state
+          var port = (window.location.port || '');
+          var search = (window.location.search || '').toLowerCase();
+          var path = (window.location.pathname || '').toLowerCase();
+          var hash = (window.location.hash || '').toLowerCase();
+          var isDriver = (typeof window !== 'undefined' && window.RIDINGO_TARGET === 'driver') ||
+            port === '5174' ||
+            search.includes('app=driver') ||
+            search.includes('view=driver') ||
+            path.includes('/driver') ||
+            hash.includes('driver');
+
+          document.documentElement.classList.add('standalone-app');
+          document.documentElement.setAttribute('data-app', isDriver ? 'driver' : 'user');
+          if (isDriver) {
+            document.documentElement.classList.add('standalone-user');
+            document.documentElement.classList.remove('standalone-user');
+          } else {
+            document.documentElement.classList.add('standalone-user');
+            document.documentElement.classList.remove('standalone-user');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <title>Ridingo</title>
-    <link rel="icon" type="image/png" href="./app_icon.png" />
-    <link rel="apple-touch-icon" href="./app_icon.png" />
-    <script type="module" crossorigin src="./assets/main-Gw0o9PTJ.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/main-Z8P_JNca.css">
+    <link rel="icon" type="image/png" href="./App icon.png" />
+    <link rel="apple-touch-icon" href="./App icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script>
+      // Gracefully handle Google Maps API key auth/billing failures without Google's default alert dialog
+      window.gm_authFailure = function() {
+        console.warn('[GoogleMaps] Google Maps API key notice: Places API or billing is not yet activated on Google Cloud Console. Seamlessly falling back to high-speed local places & Nominatim routing.');
+      };
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC4h9iZeICidnBBQSiP0wCJo-TX_GxkxNM&libraries=places,geometry" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style id="app-splash-styles">.app-splash-overlay{z-index:9999999;pointer-events:auto;background:#fff;justify-content:center;align-items:center;transition:opacity .45s cubic-bezier(.16,1,.3,1),visibility .45s cubic-bezier(.16,1,.3,1);display:flex;position:fixed;inset:0}[data-theme=dark] .app-splash-overlay,html[data-theme=dark] .app-splash-overlay,body[data-theme=dark] .app-splash-overlay{background:#090a0e}.app-splash-content{flex-direction:column;justify-content:center;align-items:center;gap:24px;display:flex;transform:translateY(-8px)}.app-splash-logo{object-fit:contain;width:auto;max-width:210px;height:38px;animation:.5s cubic-bezier(.16,1,.3,1) both splashLogoEnter;display:none!important}[data-app=driver] .app-splash-logo.splash-user,.standalone-user .app-splash-logo.splash-user{display:none!important}[data-app=driver]:not([data-theme=dark]) .app-splash-overlay .splash-logo-light.splash-driver,.standalone-user:not([data-theme=dark]) .app-splash-overlay .splash-logo-light.splash-driver,[data-app=driver][data-theme=dark] .app-splash-overlay .splash-logo-dark.splash-driver,.standalone-user[data-theme=dark] .app-splash-overlay .splash-logo-dark.splash-driver{max-width:210px;height:38px;display:block!important}[data-app=user] .app-splash-logo.splash-driver,.standalone-user .app-splash-logo.splash-driver,html:not([data-app=driver]):not(.standalone-user) .app-splash-logo.splash-driver{display:none!important}html:not([data-app=driver]):not(.standalone-user):not([data-theme=dark]) .app-splash-overlay .splash-logo-light.splash-user,[data-app=user]:not([data-theme=dark]) .app-splash-overlay .splash-logo-light.splash-user,.standalone-user:not([data-theme=dark]) .app-splash-overlay .splash-logo-light.splash-user{max-width:240px;height:48px;display:block!important}[data-theme=dark] .app-splash-overlay .splash-logo-light.splash-user,html[data-theme=dark] .app-splash-overlay .splash-logo-light.splash-user{display:none!important}html:not([data-app=driver]):not(.standalone-user)[data-theme=dark] .app-splash-overlay .splash-logo-dark.splash-user,[data-app=user][data-theme=dark] .app-splash-overlay .splash-logo-dark.splash-user,.standalone-user[data-theme=dark] .app-splash-overlay .splash-logo-dark.splash-user{max-width:240px;height:48px;display:block!important}html:not([data-theme=dark]) .app-splash-overlay .splash-logo-dark.splash-user{display:none!important}.app-splash-loader-track{background:#00000014;border-radius:999px;width:140px;height:3px;position:relative;overflow:hidden}[data-theme=dark] .app-splash-loader-track,html[data-theme=dark] .app-splash-loader-track,body[data-theme=dark] .app-splash-loader-track{background:#ffffff1f}.app-splash-loader-fill{background:linear-gradient(90deg,#ffc70a 0%,#ffa800 100%);border-radius:999px;width:45%;animation:1.3s cubic-bezier(.4,0,.2,1) infinite splashShimmer;position:absolute;top:0;bottom:0;left:0;box-shadow:0 0 10px #ffc70a8c}@keyframes splashShimmer{0%{width:35%;left:-45%}50%{width:55%}to{width:35%;left:110%}}@keyframes splashLogoEnter{0%{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}.app-splash-overlay.splash-fade-out{opacity:0!important;visibility:hidden!important;pointer-events:none!important}</style>
+    <script type="module" crossorigin src="./assets/index-CZ1Xl6nL.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Z8P_JNca.css">
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -75,6 +134,89 @@
 
 </head>
   <body class="standalone-app standalone-user">
+    <!-- App Refresh Premium Splash Screen -->
+    <div id="app-splash-screen" class="app-splash-overlay" aria-hidden="true">
+      <script>
+        (function() {
+          try {
+            var port = (window.location.port || '');
+            var search = (window.location.search || '').toLowerCase();
+            var path = (window.location.pathname || '').toLowerCase();
+            var hash = (window.location.hash || '').toLowerCase();
+            var isD = (typeof window !== 'undefined' && window.RIDINGO_TARGET === 'driver') ||
+              port === '5174' ||
+              search.includes('app=driver') ||
+              search.includes('view=driver') ||
+              path.includes('/driver') ||
+              hash.includes('driver') ||
+              document.documentElement.getAttribute('data-app') === 'driver';
+
+            if (isD) {
+              document.documentElement.setAttribute('data-app', 'driver');
+              document.documentElement.classList.add('standalone-user');
+              document.documentElement.classList.remove('standalone-user');
+              if (document.body) {
+                document.body.classList.add('standalone-user');
+                document.body.classList.remove('standalone-user');
+              }
+            } else {
+              document.documentElement.setAttribute('data-app', 'user');
+              document.documentElement.classList.add('standalone-user');
+              document.documentElement.classList.remove('standalone-user');
+              if (document.body) {
+                document.body.classList.add('standalone-user');
+                document.body.classList.remove('standalone-user');
+              }
+            }
+          } catch(e) {}
+        })();
+      </script>
+      <div class="app-splash-content">
+        <!-- User App Logos -->
+        <img class="app-splash-logo splash-logo-dark splash-user" src="./Ridingo White.png" alt="Ridingo" />
+        <img class="app-splash-logo splash-logo-light splash-user" src="./Ridingo Black.png" alt="Ridingo" />
+        <!-- Driver App Logos -->
+        
+        
+
+        <div class="app-splash-loader-track">
+          <div class="app-splash-loader-fill"></div>
+        </div>
+      </div>
+      <script>
+        (function() {
+          try {
+            var isD = document.documentElement.getAttribute('data-app') === 'driver' ||
+              document.documentElement.classList.contains('standalone-user');
+            var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            var splash = document.getElementById('app-splash-screen');
+            if (splash) {
+              // 1. Purge other app logos
+              var purgeApp = splash.querySelectorAll(isD ? '.splash-user' : '.splash-driver');
+              for (var i = 0; i < purgeApp.length; i++) {
+                purgeApp[i].parentNode && purgeApp[i].parentNode.removeChild(purgeApp[i]);
+              }
+              // 2. Purge opposite theme logos so black logo NEVER renders in dark mode and vice-versa
+              var purgeTheme = splash.querySelectorAll(isDark ? '.splash-logo-light' : '.splash-logo-dark');
+              for (var j = 0; j < purgeTheme.length; j++) {
+                purgeTheme[j].parentNode && purgeTheme[j].parentNode.removeChild(purgeTheme[j]);
+              }
+            }
+          } catch(e) {}
+        })();
+      </script>
+    </div>
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.info('[PWA] ServiceWorker registered:', reg.scope);
+          }).catch(function(err) {
+            console.warn('[PWA] ServiceWorker registration notice:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>
