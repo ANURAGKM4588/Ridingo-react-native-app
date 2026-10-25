@@ -18,6 +18,7 @@ import AdminPanel from './components/admin/AdminPanel';
 import Icon from './components/Icon';
 import NetworkStatusBanner from './components/NetworkStatusBanner';
 import { checkLocationPermissions, requestLocationPermissions } from './services/nativeLocationService';
+import AppSplashScreen from './components/native/AppSplashScreen';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -141,19 +142,7 @@ function MainApp() {
     } catch (e) {}
   }, [setLiveTrackingOpen, setActiveTrackingTripId, setBookingOpen, trips]);
 
-  React.useEffect(() => {
-    // Graceful fade-out of the App Refresh Splash Screen
-    const splash = document.getElementById('app-splash-screen');
-    if (splash) {
-      const timer = setTimeout(() => {
-        splash.classList.add('splash-fade-out');
-        setTimeout(() => {
-          if (splash.parentNode) splash.parentNode.removeChild(splash);
-        }, 500);
-      }, 750);
-      return () => clearTimeout(timer);
-    }
-  }, []);
+  const [splashVisible, setSplashVisible] = React.useState(true);
 
   React.useEffect(() => {
     const el = document.getElementById('u-content');
@@ -197,7 +186,8 @@ function MainApp() {
   }, [view]);
 
   return (
-    <div className="stage full-preview-stage" id="stage" data-view={view}>
+    <>
+      <div className="stage full-preview-stage" id="stage" data-view={view}>
         {/* User App Full-Screen Preview */}
         {view === 'user' && (
           <section className="col col-fullscreen" id="col-u" data-theme={userThemeVal} data-theme-setting={userTheme}>
@@ -285,6 +275,15 @@ function MainApp() {
           </section>
         )}
       </div>
+      {splashVisible && (
+        <AppSplashScreen
+          isDriver={view === 'driver'}
+          isDark={view === 'driver' ? driverThemeVal === 'dark' : userThemeVal === 'dark'}
+          visible={splashVisible}
+          onAnimationEnd={() => setSplashVisible(false)}
+        />
+      )}
+    </>
   );
 }
 

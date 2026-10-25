@@ -1107,7 +1107,7 @@ export default function PhonePePgCheckout() {
                       }}
                     >
                       <img
-                        src="./UPI App/phonepe-icon.webp"
+                        src="/upi/phonepe-icon.webp"
                         alt="PhonePe"
                         onError={e => {
                           if (!e.target.dataset.fb) {
@@ -1187,7 +1187,7 @@ export default function PhonePePgCheckout() {
                       }}
                     >
                       <img
-                        src="./UPI App/google-pay-icon.webp"
+                        src="/upi/google-pay-icon.webp"
                         alt="Google Pay"
                         onError={e => {
                           if (!e.target.dataset.fb) {
@@ -1262,7 +1262,7 @@ export default function PhonePePgCheckout() {
                       }}
                     >
                       <img
-                        src="./UPI App/apple-icon-4.png"
+                        src="/upi/apple-icon-4.png"
                         alt="Apple Pay"
                         onError={e => {
                           if (!e.target.dataset.fb) {
@@ -1343,7 +1343,7 @@ export default function PhonePePgCheckout() {
                       }}
                     >
                       <img
-                        src="./UPI App/Cred-Logo-PNG-Image.png"
+                        src="/upi/cred-logo-png-image.png"
                         alt="CRED"
                         onError={e => {
                           if (!e.target.dataset.fb) {
@@ -1742,7 +1742,7 @@ export default function PhonePePgCheckout() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <img
-                src="./UPI App/phonepe-icon.webp"
+                src="/upi/phonepe-icon.webp"
                 alt="PhonePe"
                 onError={e => {
                   if (!e.target.dataset.fb) {

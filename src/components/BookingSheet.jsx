@@ -7,6 +7,10 @@ import { searchPlaces } from '../lib/locationService';
 import { searchGooglePlaces, calculateTripRouteAndETA, fetchGoogleDistanceMatrix, geocodeAddress, fetchPlaceDetails, initGooglePlacesAutocomplete, formatDurationMeasurement, cleanPlusCode, fetchNearestLandmarkByCoordinates, getPlaceDetailsOnMarkerPlaced } from '../services/googleMapsService';
 import { openPhonePeCheckout } from '../utils/phonepe';
 import { POPULAR_DESTINATIONS } from '../data/popularDestinations';
+import darkMapImg from '../assets/dark_mode_city_map.png';
+import lightMapImg from '../assets/minimalist_aerial_city_map.png';
+import darkGraphicMapImg from '../assets/graphic_map_bg_dark.jpg';
+import lightGraphicMapImg from '../assets/graphic_map_bg_light.jpg';
 
 const highlightMatchGoogleStock = (text, query) => {
   if (!text) return '';
@@ -145,7 +149,8 @@ export default function BookingSheet() {
     isUserTrip,
     setActiveTrackingTripId,
     setLiveTrackingOpen,
-    setTermsConfirmationBanner
+    setTermsConfirmationBanner,
+    theme
   } = useApp();
 
   const activeOngoingTrip = (trips || []).find(t =>
@@ -313,11 +318,31 @@ export default function BookingSheet() {
   };
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
     if (typeof document !== 'undefined') {
       return document.documentElement.getAttribute('data-theme') === 'dark';
     }
     return false;
   });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      setIsDarkMode(true);
+    } else if (theme === 'light') {
+      setIsDarkMode(false);
+    }
+    const checkTheme = () => {
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      setIsDarkMode(dark);
+    };
+    const observer = new MutationObserver(checkTheme);
+    if (typeof document !== 'undefined') {
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+    return () => observer.disconnect();
+  }, [theme]);
+
   const termsSectionRef = useRef(null);
   const scrollBodyRef = useRef(null);
   const isTopEdgeDragRef = useRef(false);
@@ -1620,9 +1645,22 @@ export default function BookingSheet() {
             {/* 1. Full Screen Graphic Map Layer (Locked in place so pickup/destination flow remains static during transition) */}
             <div className="bk-map-canvas-layer">
               <img
-                src={isDarkMode ? '/map/Dark Mode City Map.png' : '/map/Minimalist Aerial City Map.png'}
+                src={isDarkMode ? darkMapImg : lightMapImg}
                 alt="Map Preview"
                 className="bk-map-bg-img"
+                key={isDarkMode ? 'map-dark' : 'map-light'}
+                onError={(e) => {
+                  if (!e.currentTarget.dataset.fallback) {
+                    e.currentTarget.dataset.fallback = '1';
+                    e.currentTarget.src = isDarkMode ? darkGraphicMapImg : lightGraphicMapImg;
+                  } else if (e.currentTarget.dataset.fallback === '1') {
+                    e.currentTarget.dataset.fallback = '2';
+                    e.currentTarget.src = isDarkMode ? '/map/dark_mode_city_map.png' : '/map/minimalist_aerial_city_map.png';
+                  } else if (e.currentTarget.dataset.fallback === '2') {
+                    e.currentTarget.dataset.fallback = '3';
+                    e.currentTarget.src = isDarkMode ? '/map/Dark Mode City Map.png' : '/map/Minimalist Aerial City Map.png';
+                  }
+                }}
               />
 
               {/* Graphic Route Overlay with Pins & Callout Badges (Centered Responsive Stage) */}

@@ -424,13 +424,13 @@ p {
 }
 
 [data-theme="dark"] .ridingo-brand-logo {
-  content: url('/Ridingo White.png');
+  content: url('/ridingo_white.png');
 }
 
 .standalone-driver .ridingo-brand-logo,
 .driver-app-root .ridingo-brand-logo,
 #col-d .ridingo-brand-logo {
-  content: url('/Drivers/Logo Drivers-02.png') !important;
+  content: url('/Drivers/logo_drivers_02.png') !important;
 }
 
 [data-theme="dark"].standalone-driver .ridingo-brand-logo,
@@ -438,7 +438,7 @@ p {
 [data-theme="dark"] .standalone-driver .ridingo-brand-logo,
 [data-theme="dark"] .driver-app-root .ridingo-brand-logo,
 #col-d[data-theme="dark"] .ridingo-brand-logo {
-  content: url('/Drivers/Logo Drivers-01.png') !important;
+  content: url('/Drivers/logo_drivers_01.png') !important;
 }
 
 .app-icon-img {
@@ -6329,16 +6329,22 @@ body[data-theme="dark"] .onboarding-continue-btn {
   left: 0;
   right: 0;
   margin-top: 4px;
-  background: var(--card, #FFFFFF);
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.08);
-  z-index: 9999 !important;
+  background: #FFFFFF !important;
+  border-radius: 10px;
+  border: 1px solid #000000 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  z-index: 99999 !important;
   overflow: hidden;
-  max-height: 310px;
+  max-height: 320px;
   overflow-y: auto;
   scrollbar-width: thin;
   animation: dropSlideDown 0.12s ease-out;
+}
+
+[data-theme="dark"] .location-suggest-dropdown {
+  background: #111113 !important;
+  border: 1px solid #3F3F46 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6) !important;
 }
 
 @keyframes dropSlideDown {
@@ -6360,20 +6366,32 @@ body[data-theme="dark"] .onboarding-continue-btn {
   padding: 10px 14px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid #F4F4F5;
   text-align: left;
   cursor: pointer;
   transition: background 0.12s ease;
+  color: #000000;
+}
+
+[data-theme="dark"] .loc-suggest-item {
+  border-bottom: 1px solid #27272A !important;
+  color: #FFFFFF !important;
 }
 
 .loc-suggest-item:last-child {
-  border-bottom: none;
+  border-bottom: none !important;
 }
 
 .loc-suggest-item:hover,
 .loc-suggest-item:focus,
 .loc-suggest-item:active {
-  background: rgba(0, 0, 0, 0.05);
+  background: #F4F4F5;
+}
+
+[data-theme="dark"] .loc-suggest-item:hover,
+[data-theme="dark"] .loc-suggest-item:focus,
+[data-theme="dark"] .loc-suggest-item:active {
+  background: #1F1F23 !important;
 }
 
 .leaflet-control-zoom {
@@ -8340,7 +8358,7 @@ body.app-offline-mode .action-btn {
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: var(--book-card-radius);
   padding: var(--book-card-pad-y) var(--book-card-pad-x);
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 14px 40px -10px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.03);
   margin: 0 auto 20px;
   width: 100%;
@@ -8358,6 +8376,8 @@ body.app-offline-mode .action-btn {
   height: 150px;
   pointer-events: none;
   opacity: 0.95;
+  overflow: hidden;
+  border-top-right-radius: var(--book-card-radius);
   z-index: 0;
 }
 
@@ -9370,16 +9390,16 @@ body.standalone-app .nv.on {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 20%;
+  object-position: center center;
   display: block;
 }
 
-/* Subtle overlay gradient to ensure clean readability */
+/* Subtle overlay gradient to ensure clean readability without washing out roads */
 .bk-map-canvas-layer::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.15) 100%);
+  background: linear-gradient(180deg, rgba(15,23,42,0.12) 0%, rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.12) 100%);
   pointer-events: none;
 }
 

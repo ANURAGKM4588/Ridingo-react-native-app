@@ -270,8 +270,9 @@ export default function ProfileTab() {
                   />
                 ) : (
                   <img
-                    src="/App icon.png"
+                    src="/app_icon.png"
                     alt="Ridingo"
+                    onError={(e) => { e.currentTarget.src = '/App icon.png'; }}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 )}

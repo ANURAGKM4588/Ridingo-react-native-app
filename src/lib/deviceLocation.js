@@ -141,11 +141,15 @@ async function getIPFallbackLocation() {
  */
 export async function getDeviceLocation(forceRefresh = false) {
   if (!forceRefresh && cachedDeviceCoords) {
+    const lat = cachedDeviceCoords.lat;
+    const lng = cachedDeviceCoords.lng;
+    const accuracy = cachedDeviceCoords.accuracy || 25;
     return {
-      lat: cachedDeviceCoords.lat,
-      lng: cachedDeviceCoords.lng,
-      accuracy: cachedDeviceCoords.accuracy || 25,
-      address: cachedAddress || `Location (${cachedDeviceCoords.lat.toFixed(4)}, ${cachedDeviceCoords.lng.toFixed(4)})`
+      lat,
+      lng,
+      coords: { latitude: lat, longitude: lng, accuracy },
+      accuracy,
+      address: cachedAddress || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
     };
   }
 
@@ -158,7 +162,7 @@ export async function getDeviceLocation(forceRefresh = false) {
     let lng = null;
     let accuracy = null;
 
-    // 1. Native Capacitor Geolocation with fast timeout (iOS & Android)
+    // 1. Native Capacitor Geolocation with high accuracy (iOS & Android)
     if (Capacitor.isNativePlatform()) {
       try {
         const perm = await Geolocation.checkPermissions();
@@ -167,8 +171,8 @@ export async function getDeviceLocation(forceRefresh = false) {
         }
         const pos = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
-          timeout: 4000,
-          maximumAge: forceRefresh ? 5000 : 60000
+          timeout: 8000,
+          maximumAge: forceRefresh ? 0 : 5000
         });
         if (pos && pos.coords) {
           lat = pos.coords.latitude;
@@ -176,10 +180,10 @@ export async function getDeviceLocation(forceRefresh = false) {
           accuracy = pos.coords.accuracy;
         }
       } catch (nativeErr) {
-        console.warn('Fast native geolocation note:', nativeErr);
+        console.warn('Native geolocation note:', nativeErr);
       }
     } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      // 2. HTML5 Geolocation API in regular desktop browser ONLY
+      // 2. Real-time HTML5 Geolocation API with high accuracy
       try {
         const pos = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(
@@ -187,8 +191,8 @@ export async function getDeviceLocation(forceRefresh = false) {
             reject,
             {
               enableHighAccuracy: true,
-              timeout: 4500,
-              maximumAge: forceRefresh ? 5000 : 60000
+              timeout: 8000,
+              maximumAge: forceRefresh ? 0 : 5000
             }
           );
         });
@@ -197,16 +201,22 @@ export async function getDeviceLocation(forceRefresh = false) {
           lng = pos.coords.longitude;
           accuracy = pos.coords.accuracy;
         }
-      } catch (geoErr) {}
+      } catch (geoErr) {
+        console.warn('Browser geolocation notice:', geoErr);
+      }
     }
 
     // 3. Fallback to existing cache if hardware GPS took too long
     if (lat === null && cachedDeviceCoords) {
+      const cLat = cachedDeviceCoords.lat;
+      const cLng = cachedDeviceCoords.lng;
+      const cAcc = cachedDeviceCoords.accuracy || 25;
       return {
-        lat: cachedDeviceCoords.lat,
-        lng: cachedDeviceCoords.lng,
-        accuracy: cachedDeviceCoords.accuracy || 25,
-        address: cachedAddress || `Location (${cachedDeviceCoords.lat.toFixed(4)}, ${cachedDeviceCoords.lng.toFixed(4)})`
+        lat: cLat,
+        lng: cLng,
+        coords: { latitude: cLat, longitude: cLng, accuracy: cAcc },
+        accuracy: cAcc,
+        address: cachedAddress || `Location (${cLat.toFixed(4)}, ${cLng.toFixed(4)})`
       };
     }
 
@@ -219,7 +229,10 @@ export async function getDeviceLocation(forceRefresh = false) {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...cachedDeviceCoords, address: cachedAddress }));
         } catch (e) {}
-        return ipLoc;
+        return {
+          ...ipLoc,
+          coords: { latitude: ipLoc.lat, longitude: ipLoc.lng, accuracy: ipLoc.accuracy }
+        };
       }
       // Ultimate default: Cochin / Bangalore hub
       lat = 10.0245;
@@ -240,6 +253,7 @@ export async function getDeviceLocation(forceRefresh = false) {
     return {
       lat,
       lng,
+      coords: { latitude: lat, longitude: lng, accuracy: accuracy || 25 },
       accuracy: accuracy || 25,
       address: cachedAddress || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
     };
@@ -258,11 +272,15 @@ export async function getDeviceLocation(forceRefresh = false) {
  */
 export function getCachedDeviceLocation() {
   if (cachedDeviceCoords) {
+    const lat = cachedDeviceCoords.lat;
+    const lng = cachedDeviceCoords.lng;
+    const accuracy = cachedDeviceCoords.accuracy || 25;
     return {
-      lat: cachedDeviceCoords.lat,
-      lng: cachedDeviceCoords.lng,
-      accuracy: cachedDeviceCoords.accuracy || 25,
-      address: cachedAddress || `Location (${cachedDeviceCoords.lat.toFixed(4)}, ${cachedDeviceCoords.lng.toFixed(4)})`
+      lat,
+      lng,
+      coords: { latitude: lat, longitude: lng, accuracy },
+      accuracy,
+      address: cachedAddress || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
     };
   }
   return null;

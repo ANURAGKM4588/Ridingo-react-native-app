@@ -109,7 +109,7 @@ const MINIMALIST_BOX_DARK_STYLE = [
   { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#F1F5F9' }] }
 ];
 
-export default function MapPickerModal({ isOpen, onClose, onSelect, targetField = 'pickup' }) {
+export default function MapPickerModal({ isOpen, onClose, onSelect, targetField = 'pickup', initialCoords = null }) {
   const { userThemeVal } = useApp() || {};
   const isDark = userThemeVal === 'dark';
 
@@ -193,12 +193,14 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
     if (!isOpen) return;
     let isCancelled = false;
 
-    const cachedLoc = getCachedDeviceLocation() || {
-      lat: 10.0275,
-      lng: 76.3080,
-      accuracy: 25,
-      address: 'Kochi, Kerala'
-    };
+    const cachedLoc = (initialCoords && initialCoords.lat && initialCoords.lng)
+      ? { lat: Number(initialCoords.lat), lng: Number(initialCoords.lng), accuracy: 15, address: initialCoords.address || '' }
+      : (getCachedDeviceLocation() || {
+          lat: 10.0275,
+          lng: 76.3080,
+          accuracy: 25,
+          address: 'Current Location'
+        });
 
     const initialLat = cachedLoc.lat;
     const initialLng = cachedLoc.lng;
@@ -311,24 +313,26 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
       }
     }, 60);
 
-    // Fast non-blocking background GPS refresh
-    getDeviceLocation(false)
+    // Fast non-blocking live GPS refresh
+    getDeviceLocation(true)
       .then((freshLoc) => {
         if (isCancelled || !freshLoc || !freshLoc.lat) return;
-        setCoordsInfo((prev) => ({
-          ...prev,
-          lat: freshLoc.lat,
-          lng: freshLoc.lng,
-          accuracy: freshLoc.accuracy
-        }));
-        if (freshLoc.address) {
-          setSelectedAddr(cleanPlusCode(freshLoc.address));
-        }
+        if (!initialCoords?.lat) {
+          setCoordsInfo((prev) => ({
+            ...prev,
+            lat: freshLoc.lat,
+            lng: freshLoc.lng,
+            accuracy: freshLoc.accuracy
+          }));
+          if (freshLoc.address) {
+            setSelectedAddr(cleanPlusCode(freshLoc.address));
+          }
 
-        if (mapEngineRef.current === 'google' && googleMapRef.current) {
-          googleMapRef.current.panTo({ lat: freshLoc.lat, lng: freshLoc.lng });
-        } else if (leafletMapRef.current) {
-          leafletMapRef.current.panTo([freshLoc.lat, freshLoc.lng], { animate: false });
+          if (mapEngineRef.current === 'google' && googleMapRef.current) {
+            googleMapRef.current.panTo({ lat: freshLoc.lat, lng: freshLoc.lng });
+          } else if (leafletMapRef.current) {
+            leafletMapRef.current.panTo([freshLoc.lat, freshLoc.lng], { animate: false });
+          }
         }
       })
       .catch(() => {});
@@ -361,39 +365,22 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
   const handleDetectCurrentLocation = () => {
     setGpsError(null);
 
-    const cached = getCachedDeviceLocation();
-    if (cached && cached.lat && cached.lng) {
-      const cleanAddr = cleanPlusCode(cached.address) || 'Current Location';
-      setCoordsInfo({
-        lat: cached.lat,
-        lng: cached.lng,
-        accuracy: cached.accuracy || 20,
-        name: cleanAddr.split(',')[0].trim() || 'Current Location',
-        address: cleanAddr
-      });
-      setSelectedAddr(cleanAddr);
-
-      if (mapEngineRef.current === 'google' && googleMapRef.current) {
-        googleMapRef.current.panTo({ lat: cached.lat, lng: cached.lng });
-        googleMapRef.current.setZoom(17);
-      } else if (leafletMapRef.current) {
-        leafletMapRef.current.setView([cached.lat, cached.lng], 17, { animate: false });
-      }
-    }
-
-    getCurrentDevicePosition({ enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 })
+    getCurrentDevicePosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 })
       .then((pos) => {
         if (pos && pos.coords) {
           const { latitude, longitude } = pos.coords;
           if (mapEngineRef.current === 'google' && googleMapRef.current) {
             googleMapRef.current.panTo({ lat: latitude, lng: longitude });
+            googleMapRef.current.setZoom(17);
           } else if (leafletMapRef.current) {
-            leafletMapRef.current.panTo([latitude, longitude], { animate: false });
+            leafletMapRef.current.setView([latitude, longitude], 17, { animate: true });
           }
           geocodeCenter(latitude, longitude);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('GPS query notice:', err);
+      });
   };
 
   // Zoom In

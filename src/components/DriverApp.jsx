@@ -4917,8 +4917,9 @@ export default function DriverApp() {
                         />
                       ) : (
                         <img
-                          src="/Drivers/Drivers App icon.png"
+                          src="/Drivers/drivers_app_icon.png"
                           alt="Ridingo Driver"
+                          onError={(e) => { e.currentTarget.src = '/Drivers/Drivers App icon.png'; }}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       )}

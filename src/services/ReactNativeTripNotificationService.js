@@ -253,7 +253,7 @@ export async function displayCustomTripNotification(tripData = {}) {
         visibility: AndroidVisibility.PUBLIC,
         color: theme.background,
         smallIcon: 'ic_stat_ridingo',
-        largeIcon: 'https://ridingo.app/App%20icon.png',
+        largeIcon: 'https://ridingo.app/app_icon.png',
         style: {
           type: AndroidStyle.BIGTEXT,
           text: formattedHtmlText,
@@ -322,7 +322,7 @@ export async function displayCustomTripNotification(tripData = {}) {
       try {
         new Notification(`🚗 New Trip Request: ₹${fare}`, {
           body: `📍 ${pickup} ➔ 🏁 ${drop}\nTotal: ₹${fare} (₹${advance} Advance)`,
-          icon: '/App icon.png',
+          icon: '/app_icon.png',
           tag: String(tripId),
           data: { tripId, fare, pickup, drop }
         });

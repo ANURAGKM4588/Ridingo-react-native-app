@@ -659,7 +659,7 @@ export async function sendDriverNativeNotification(title, body, options = {}) {
   // 3. Web / Desktop / PWA OS Notification Center Fallback
   if (typeof window !== 'undefined' && 'Notification' in window) {
     try {
-      const appIconUrl = window.location?.origin ? `${window.location.origin}/App%20icon.png` : '/App icon.png';
+      const appIconUrl = window.location?.origin ? `${window.location.origin}/app_icon.png` : '/app_icon.png';
       if (Notification.permission === 'granted') {
         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
           const reg = await navigator.serviceWorker.ready;
@@ -1057,7 +1057,7 @@ export async function sendUserNativeNotification(title, body, options = {}) {
   // Web Browser Notification with stable tag to prevent multiple browser toasts
   if (typeof window !== 'undefined' && 'Notification' in window) {
     try {
-      const appIconUrl = window.location?.origin ? `${window.location.origin}/App%20icon.png` : '/App icon.png';
+      const appIconUrl = window.location?.origin ? `${window.location.origin}/app_icon.png` : '/app_icon.png';
       if (Notification.permission === 'granted') {
         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
           const reg = await navigator.serviceWorker.ready;

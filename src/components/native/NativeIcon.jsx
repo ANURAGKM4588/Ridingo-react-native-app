@@ -1,9 +1,11 @@
 import React from 'react';
+import { Platform, StyleSheet } from 'react-native';
 import Svg, { Path, Rect, Circle, Polyline, Line, Polygon } from 'react-native-svg';
 
 /**
  * NativeIcon Component
- * 100% Pure React Native SVG Icon system eliminating DOM <svg>.
+ * Cross-platform Icon system supporting pure React Native iOS/Android (react-native-svg)
+ * and Web (native SVG) with zero runtime warnings or property errors.
  */
 
 const PATHS = {
@@ -34,7 +36,7 @@ const PATHS = {
   historyFilled: (c) => (
     <>
       <Circle cx="12" cy="12" r="9" fill={c} />
-      <Path d="M12 7v5l3 2" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      <Path d="M12 7v5l3 2" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" fill="none" />
     </>
   ),
   wallet: (c, sw) => (
@@ -73,6 +75,42 @@ const PATHS = {
       <Path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="12" cy="10" r="3" stroke={c} strokeWidth={sw} fill="none" />
     </>
+  ),
+  pinFilled: (c) => (
+    <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill={c} />
+  ),
+  briefcase: (c, sw) => (
+    <>
+      <Rect width="20" height="14" x="2" y="7" rx="2" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  work: (c, sw) => (
+    <>
+      <Rect width="20" height="14" x="2" y="7" rx="2" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  crosshair: (c, sw) => (
+    <>
+      <Circle cx="12" cy="12" r="10" stroke={c} strokeWidth={sw} fill="none" />
+      <Line x1="22" y1="12" x2="18" y2="12" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+      <Line x1="6" y1="12" x2="2" y2="12" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+      <Line x1="12" y1="6" x2="12" y2="2" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+      <Line x1="12" y1="22" x2="12" y2="18" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+    </>
+  ),
+  target: (c, sw) => (
+    <>
+      <Circle cx="12" cy="12" r="10" stroke={c} strokeWidth={sw} fill="none" />
+      <Line x1="22" y1="12" x2="18" y2="12" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+      <Line x1="6" y1="12" x2="2" y2="12" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+      <Line x1="12" y1="6" x2="12" y2="2" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+      <Line x1="12" y1="22" x2="12" y2="18" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+    </>
+  ),
+  map: (c, sw) => (
+    <Path d="M14.1 2.2a2 2 0 0 0-1.8 0L8 4.3 3.6 2.1A2 2 0 0 0 1 3.9v15.2a2 2 0 0 0 1.1 1.8l4.9 2.4a2 2 0 0 0 1.8 0l4.3-2.1 4.4 2.2a2 2 0 0 0 2.6-1.8V6.4a2 2 0 0 0-1.1-1.8l-4.9-2.4zM8 4.3v15.2M16 2.5v15.2" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
   ),
   car: (c, sw) => (
     <>
@@ -199,9 +237,23 @@ export default function NativeIcon({
   const key = filled && PATHS[`${camelKey}Filled`] ? `${camelKey}Filled` : (PATHS[name] ? name : camelKey);
 
   const renderIconContent = PATHS[key] || PATHS.home;
+  const flattenedStyle = style ? StyleSheet.flatten(style) : undefined;
+
+  if (Platform.OS === 'web') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        style={flattenedStyle}
+      >
+        {renderIconContent(color, strokeWidth)}
+      </svg>
+    );
+  }
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" style={style}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" style={flattenedStyle}>
       {renderIconContent(color, strokeWidth)}
     </Svg>
   );

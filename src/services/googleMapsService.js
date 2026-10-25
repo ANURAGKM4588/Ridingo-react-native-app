@@ -1185,175 +1185,241 @@ let placesSearchSeq = 0;
  * 3. Falls back to Google Places Text Search (searchText) if autocomplete returns 0 suggestions.
  * 4. Ensures all suggestions carry genuine Google place IDs and verified coordinates.
  */
-export async function searchGooglePlaces(query, callback, options = {}) {
-  if (!query || !query.trim() || query.trim().length < 2) {
-    callback([]);
-    return;
-  }
+export async function searchGooglePlaces(query, callbackOrOptions, options = {}) {
+  const callback = typeof callbackOrOptions === 'function' ? callbackOrOptions : null;
+  const opts = typeof callbackOrOptions === 'function' ? (options || {}) : (callbackOrOptions || {});
 
-  const clean = query.trim();
-  const lower = clean.toLowerCase();
-  const currentSeq = ++placesSearchSeq;
-
-  // 1. Instant 0ms Cache Hit (Only if verified genuine Google results)
-  if (placesMemoryCache.has(lower)) {
-    const cached = placesMemoryCache.get(lower);
-    if (Array.isArray(cached) && cached.length > 0 && cached[0].source === 'google') {
-      callback(cached);
-      return;
-    }
-  }
-
-  // 2. Primary: Live Google Places API (New) Autocomplete via REST (Country: India)
-  const apiKey = GOOGLE_MAPS_API_KEY || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
-  if (apiKey && !apiKey.includes('YOUR_GOOGLE_MAPS_API_KEY')) {
-    try {
-      const payload = {
-        input: clean,
-        includedRegionCodes: ['in']
-      };
-
-      const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (currentSeq !== placesSearchSeq) return;
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
-          const googleResults = data.suggestions
-            .filter(s => s.placePrediction)
-            .map(s => {
-              const p = s.placePrediction;
-              const placeId = p.placeId || (p.place ? p.place.replace(/^places\//, '') : '');
-              const mainText = cleanPlusCode(p.structuredFormat?.mainText?.text || p.text?.text?.split(',')?.[0] || clean);
-              const secondaryText = cleanPlusCode(p.structuredFormat?.secondaryText?.text || p.text?.text || '');
-              return {
-                id: placeId,
-                place_id: placeId,
-                title: mainText,
-                sub: secondaryText,
-                full: cleanPlusCode(p.text?.text || `${mainText}, ${secondaryText}`),
-                isMock: false,
-                source: 'google'
-              };
-            });
-
-          placesMemoryCache.set(lower, googleResults);
-          callback(googleResults);
-          return;
-        }
-
-        // If autocomplete returned 0 suggestions (e.g. user typed a complex full address),
-        // use Google Places Text Search (searchText) which resolves full address queries with 100% genuine precision!
-        const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': apiKey,
-            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location'
-          },
-          body: JSON.stringify({
-            textQuery: clean,
-            languageCode: 'en',
-            regionCode: 'in'
-          })
-        });
-
-        if (currentSeq !== placesSearchSeq) return;
-
-        if (searchRes.ok) {
-          const sData = await searchRes.json();
-          if (sData?.places && sData.places.length > 0) {
-            const searchResults = sData.places.map(p => {
-              const placeId = p.id;
-              const title = cleanPlusCode(p.displayName?.text || clean);
-              const sub = cleanPlusCode(p.formattedAddress || '');
-              return {
-                id: placeId,
-                place_id: placeId,
-                title,
-                sub,
-                full: sub || title,
-                lat: p.location?.latitude ? Number(p.location.latitude) : undefined,
-                lng: p.location?.longitude ? Number(p.location.longitude) : undefined,
-                isMock: false,
-                source: 'google'
-              };
-            });
-
-            placesMemoryCache.set(lower, searchResults);
-            callback(searchResults);
-            return;
-          }
+  return new Promise(async (resolve) => {
+    let hasResolved = false;
+    const notify = (results) => {
+      if (hasResolved) return;
+      hasResolved = true;
+      const safeResults = Array.isArray(results) ? results : [];
+      if (callback) {
+        try {
+          callback(safeResults);
+        } catch (cbErr) {
+          console.warn('[GooglePlaces] callback handler notice:', cbErr);
         }
       }
-    } catch (err) {
-      console.warn('[GooglePlaces] Live Places query error:', err);
-    }
-  }
+      resolve(safeResults);
+    };
 
-  // 3. Secondary: Google Maps JavaScript SDK AutocompleteService (country: 'in')
-  if (typeof window !== 'undefined' && window.google?.maps?.places?.AutocompleteService) {
-    try {
-      const autocompleteService = new window.google.maps.places.AutocompleteService();
-      const request = {
-        input: clean,
-        componentRestrictions: { country: 'in' }
-      };
-
-      autocompleteService.getPlacePredictions(request, (predictions, status) => {
-        if (currentSeq !== placesSearchSeq) return;
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && Array.isArray(predictions) && predictions.length > 0) {
-          const formatted = predictions.map(p => {
-            const rawTitle = p.structured_formatting?.main_text || p.description.split(',')[0];
-            const rawSub = p.structured_formatting?.secondary_text || '';
-            const rawFull = p.description;
-            return {
-              id: p.place_id,
-              place_id: p.place_id,
-              title: cleanPlusCode(rawTitle),
-              sub: cleanPlusCode(rawSub),
-              full: cleanPlusCode(rawFull),
-              isMock: false,
-              source: 'google'
-            };
-          });
-
-          placesMemoryCache.set(lower, formatted);
-          callback(formatted);
-          return;
-        }
-
-        fallbackSearch();
-      });
+    if (!query || !query.trim() || query.trim().length < 1) {
+      notify([]);
       return;
+    }
+
+    const clean = query.trim();
+    const lower = clean.toLowerCase();
+    const currentSeq = ++placesSearchSeq;
+
+    // 1. Instant 0ms Cache Hit (Only if verified genuine Google results)
+    if (placesMemoryCache.has(lower)) {
+      const cached = placesMemoryCache.get(lower);
+      if (Array.isArray(cached) && cached.length > 0) {
+        notify(cached);
+        return;
+      }
+    }
+
+    // Fallback search via Local Database & Nominatim ONLY when offline / no Google API key
+    function fallbackSearch() {
+      if (currentSeq !== placesSearchSeq) return;
+      const rawLocal = getFilteredMockPlaces(lower);
+      if (rawLocal.length > 0) {
+        const topLocal = rawLocal.slice(0, 10);
+        placesMemoryCache.set(lower, topLocal);
+        notify(topLocal);
+        return;
+      }
+      fetchNominatimPlaces(clean, (nomResults) => {
+        if (currentSeq !== placesSearchSeq) return;
+        const resList = nomResults || [];
+        placesMemoryCache.set(lower, resList);
+        notify(resList);
+      });
+    }
+
+    // 2. Primary: Google Maps JavaScript SDK (Places API New AutocompleteSuggestion & AutocompleteService)
+    try {
+      if (typeof window !== 'undefined' && !window.google?.maps?.places) {
+        await loadGoogleMapsSdk().catch(() => {});
+      }
+
+      // 2a. Places API (New) AutocompleteSuggestion SDK
+      if (typeof window !== 'undefined' && window.google?.maps?.places?.AutocompleteSuggestion?.fetchAutocompleteSuggestions) {
+        try {
+          const suggestionRes = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: clean,
+            includedRegionCodes: ['in']
+          });
+          if (currentSeq !== placesSearchSeq) return;
+          if (suggestionRes?.suggestions && suggestionRes.suggestions.length > 0) {
+            const formatted = suggestionRes.suggestions
+              .filter(s => s.placePrediction)
+              .map(s => {
+                const p = s.placePrediction;
+                const placeId = p.placeId || (p.toPlace ? p.toPlace().id : '');
+                const mainText = cleanPlusCode(p.mainText?.text || p.text?.text?.split(',')?.[0] || clean);
+                const secondaryText = cleanPlusCode(p.secondaryText?.text || '');
+                return {
+                  id: placeId,
+                  place_id: placeId,
+                  title: mainText,
+                  sub: secondaryText,
+                  full: cleanPlusCode(p.text?.text || `${mainText}, ${secondaryText}`),
+                  isMock: false,
+                  source: 'google'
+                };
+              });
+            placesMemoryCache.set(lower, formatted);
+            notify(formatted);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // 2b. Legacy PlacesService AutocompleteService
+      if (typeof window !== 'undefined' && window.google?.maps?.places?.AutocompleteService) {
+        const autocompleteService = new window.google.maps.places.AutocompleteService();
+        const request = {
+          input: clean,
+          componentRestrictions: { country: 'in' }
+        };
+
+        autocompleteService.getPlacePredictions(request, (predictions, status) => {
+          if (currentSeq !== placesSearchSeq) return;
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && Array.isArray(predictions) && predictions.length > 0) {
+            const formatted = predictions.map(p => {
+              const rawTitle = p.structured_formatting?.main_text || p.description.split(',')[0];
+              const rawSub = p.structured_formatting?.secondary_text || '';
+              const rawFull = p.description;
+              return {
+                id: p.place_id,
+                place_id: p.place_id,
+                title: cleanPlusCode(rawTitle),
+                sub: cleanPlusCode(rawSub),
+                full: cleanPlusCode(rawFull),
+                isMock: false,
+                source: 'google'
+              };
+            });
+
+            placesMemoryCache.set(lower, formatted);
+            notify(formatted);
+            return;
+          }
+
+          tryRestPlacesApi();
+        });
+        return;
+      }
     } catch (sdkErr) {
       console.warn('[GooglePlaces] SDK AutocompleteService notice:', sdkErr);
     }
-  }
 
-  // 4. Fallback search via Local Database & Nominatim ONLY when offline / no Google API key
-  function fallbackSearch() {
-    if (currentSeq !== placesSearchSeq) return;
-    const rawLocal = getFilteredMockPlaces(lower);
-    if (rawLocal.length > 0) {
-      callback(rawLocal.slice(0, 10));
-      return;
-    }
-    fetchNominatimPlaces(clean, (nomResults) => {
+    tryRestPlacesApi();
+
+    // 3. Secondary: Live Google Places API (New) Autocomplete via REST (Country: India)
+    async function tryRestPlacesApi() {
       if (currentSeq !== placesSearchSeq) return;
-      callback(nomResults || []);
-    });
-  }
+      const apiKey = GOOGLE_MAPS_API_KEY || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+      if (apiKey && !apiKey.includes('YOUR_GOOGLE_MAPS_API_KEY')) {
+        try {
+          const payload = {
+            input: clean,
+            includedRegionCodes: ['in']
+          };
 
-  fallbackSearch();
+          const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (currentSeq !== placesSearchSeq) return;
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+              const googleResults = data.suggestions
+                .filter(s => s.placePrediction)
+                .map(s => {
+                  const p = s.placePrediction;
+                  const placeId = p.placeId || (p.place ? p.place.replace(/^places\//, '') : '');
+                  const mainText = cleanPlusCode(p.structuredFormat?.mainText?.text || p.text?.text?.split(',')?.[0] || clean);
+                  const secondaryText = cleanPlusCode(p.structuredFormat?.secondaryText?.text || p.text?.text || '');
+                  return {
+                    id: placeId,
+                    place_id: placeId,
+                    title: mainText,
+                    sub: secondaryText,
+                    full: cleanPlusCode(p.text?.text || `${mainText}, ${secondaryText}`),
+                    isMock: false,
+                    source: 'google'
+                  };
+                });
+
+              placesMemoryCache.set(lower, googleResults);
+              notify(googleResults);
+              return;
+            }
+
+            // Fallback to Google Places Text Search (searchText)
+            const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': apiKey,
+                'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location'
+              },
+              body: JSON.stringify({
+                textQuery: clean,
+                languageCode: 'en',
+                regionCode: 'in'
+              })
+            });
+
+            if (currentSeq !== placesSearchSeq) return;
+
+            if (searchRes.ok) {
+              const sData = await searchRes.json();
+              if (sData?.places && sData.places.length > 0) {
+                const searchResults = sData.places.map(p => {
+                  const placeId = p.id;
+                  const title = cleanPlusCode(p.displayName?.text || clean);
+                  const sub = cleanPlusCode(p.formattedAddress || '');
+                  return {
+                    id: placeId,
+                    place_id: placeId,
+                    title,
+                    sub,
+                    full: sub || title,
+                    lat: p.location?.latitude ? Number(p.location.latitude) : undefined,
+                    lng: p.location?.longitude ? Number(p.location.longitude) : undefined,
+                    isMock: false,
+                    source: 'google'
+                  };
+                });
+
+                placesMemoryCache.set(lower, searchResults);
+                notify(searchResults);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[GooglePlaces] Live Places REST query notice:', err);
+        }
+      }
+
+      fallbackSearch();
+    }
+  });
 }
 
 export function getFilteredMockPlaces(cleanQuery) {
