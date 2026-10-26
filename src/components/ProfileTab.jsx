@@ -221,7 +221,7 @@ export default function ProfileTab() {
     updateUserProfile({ languages: next });
   };
 
-  const portalTarget = mountNode || (typeof document !== 'undefined' ? (document.querySelector('#col-u .inner') || document.body) : null);
+  const portalTarget = mountNode || (typeof document !== 'undefined' ? (document.querySelector('#col-u') || document.body) : null);
 
   return (
     <div style={{ paddingBottom: '32px' }}>
@@ -795,18 +795,19 @@ export default function ProfileTab() {
           />
 
           <div
-            className="apple-page-enter"
             style={{
               position: 'relative',
               background: 'var(--surface)',
-              borderRadius: '24px',
+              borderRadius: '22px',
               border: '1px solid var(--line)',
-              width: '100%',
-              maxWidth: '350px',
-              maxHeight: '85%',
+              width: '92%',
+              maxWidth: '360px',
+              height: 'auto',
+              minHeight: 'unset',
+              maxHeight: '85vh',
               overflowY: 'auto',
-              padding: '18px 20px 22px',
-              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.4)',
+              padding: '20px 20px 22px',
+              boxShadow: '0 24px 56px rgba(0, 0, 0, 0.45)',
               zIndex: 2,
               WebkitOverflowScrolling: 'touch',
               display: 'flex',
@@ -942,14 +943,19 @@ export default function ProfileTab() {
                       onClick={handleClearLocationSetting}
                       style={{
                         height: '42px',
-                        padding: '0 14px',
+                        padding: '0 16px',
                         borderRadius: '12px',
                         background: 'transparent',
                         border: '1.5px solid #EF4444',
                         color: '#EF4444',
                         fontSize: '13px',
                         fontWeight: 700,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       Remove
@@ -957,9 +963,11 @@ export default function ProfileTab() {
                   )}
                   <button
                     type="submit"
+                    className="btn"
                     style={{
                       flex: 1,
                       height: '42px',
+                      padding: '0 18px',
                       borderRadius: '12px',
                       background: 'var(--solid)',
                       color: 'var(--on-solid)',
@@ -967,6 +975,11 @@ export default function ProfileTab() {
                       fontSize: '13.5px',
                       fontWeight: 800,
                       cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
                       boxShadow: '0 4px 14px rgba(0,0,0,0.15)'
                     }}
                   >

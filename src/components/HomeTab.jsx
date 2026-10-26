@@ -3766,10 +3766,10 @@ Live GPS Tracking: ${trackUrl}`;
             style={{
               background: isDark ? '#1C1C1E' : '#FFFFFF',
               color: isDark ? '#FFFFFF' : '#0F172A',
-              borderRadius: '24px',
-              padding: '22px 20px',
-              width: '100%',
-              maxWidth: '430px',
+              borderRadius: '22px',
+              padding: '20px',
+              width: '92%',
+              maxWidth: '360px',
               boxShadow: isDark ? '0 24px 60px rgba(0, 0, 0, 0.7)' : '0 24px 50px -12px rgba(0, 0, 0, 0.25)',
               border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #E2E8F0',
               position: 'relative',
@@ -3967,6 +3967,11 @@ Live GPS Tracking: ${trackUrl}`;
                   fontSize: '13.5px',
                   fontWeight: 800,
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
                   boxShadow: isDark ? '0 4px 14px rgba(255, 255, 255, 0.12)' : '0 4px 14px rgba(0, 0, 0, 0.25)',
                   transition: 'transform 0.15s ease'
                 }}
