@@ -9244,7 +9244,7 @@ body.standalone-app .nav,
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
-  bottom: 12px !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px) !important;
   transform: translateX(-50%) !important;
   width: calc(100% - 24px) !important;
   max-width: 520px !important;
@@ -9347,7 +9347,7 @@ body.standalone-app .nv.on {
 #d-content,
 #u-content,
 .content {
-  padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 96px) !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 104px) !important;
 }
 
 @media (min-width: 768px) {
@@ -9357,7 +9357,7 @@ body.standalone-app .nv.on {
   body.standalone-app .nav,
   .nav {
     position: fixed !important;
-    bottom: 12px !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 22px) !important;
     width: calc(100% - 24px) !important;
     min-width: 380px !important;
     max-width: 520px !important;
@@ -9368,7 +9368,7 @@ body.standalone-app .nv.on {
   #d-content,
   #u-content,
   .content {
-    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 96px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 104px) !important;
   }
 }
 
