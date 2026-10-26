@@ -55,6 +55,24 @@ const getLocalDateString = (d) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatToDDMMYYYY = (isoStr) => {
+  if (!isoStr || typeof isoStr !== 'string') return '';
+  const parts = isoStr.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+  }
+  return isoStr;
+};
+
+const getDaysInMonth = (year, month) => {
+  return new Date(year, month + 1, 0).getDate();
+};
+
+const getFirstDayOfMonth = (year, month) => {
+  return new Date(year, month, 1).getDay(); // 0 = Sunday
+};
+
 const getYearMonthKey = (d) => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -138,6 +156,37 @@ export default function TripsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [expandedTripId, setExpandedTripId] = useState(null);
+  const [calViewYear, setCalViewYear] = useState(() => (new Date()).getFullYear());
+  const [calViewMonth, setCalViewMonth] = useState(() => (new Date()).getMonth());
+
+  const handlePrevMonth = () => {
+    if (calViewMonth === 0) {
+      setCalViewMonth(11);
+      setCalViewYear(prev => prev - 1);
+    } else {
+      setCalViewMonth(prev => prev - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (calViewMonth === 11) {
+      setCalViewMonth(0);
+      setCalViewYear(prev => prev + 1);
+    } else {
+      setCalViewMonth(prev => prev + 1);
+    }
+  };
+
+  const handleSelectDay = (day) => {
+    const monthStr = String(calViewMonth + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const iso = `${calViewYear}-${monthStr}-${dayStr}`;
+    if (selectedDate === iso) {
+      setSelectedDate('');
+    } else {
+      setSelectedDate(iso);
+    }
+  };
 
   const toggleExpand = (id) => {
     setExpandedTripId(prev => (prev === id ? null : id));
@@ -238,6 +287,12 @@ export default function TripsTab() {
 
   // Base list of user trips (excluding inprogress)
   const allUserTrips = (trips || []).filter(t => isUserTrip(t, user) && t.status !== 'inprogress');
+  const tripsDateSet = new Set(allUserTrips.map(t => getLocalDateString(parseTripDate(t))));
+
+  const calDaysInMonth = getDaysInMonth(calViewYear, calViewMonth);
+  const calFirstDayIndex = getFirstDayOfMonth(calViewYear, calViewMonth);
+  const calMonthName = new Date(calViewYear, calViewMonth, 1).toLocaleString('default', { month: 'long' });
+  const todayDateStr = getLocalDateString(new Date());
 
   // Collect all months in history for bottom month navigation
   const allMonthsSet = new Set();
@@ -507,9 +562,14 @@ export default function TripsTab() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--ink, #0B0B0C)' }}>
-                  Filter by Date
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: 'var(--ink, #0B0B0C)', display: 'inline-flex' }}>
+                    <Icon name="calendar" size={17} />
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--ink, #0B0B0C)' }}>
+                    Filter by Date
+                  </span>
+                </div>
                 {activeFilterCount > 0 && (
                   <button
                     type="button"
@@ -527,72 +587,303 @@ export default function TripsTab() {
                       textDecoration: 'underline'
                     }}
                   >
-                    Reset Date Filter
+                    Reset Filter
                   </button>
                 )}
               </div>
 
-              {/* Date Filter selector in single-line straight alignment */}
+              {/* Date Display Bar: Prominent DD/MM/YYYY formatting */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '8px',
-                  flexWrap: 'nowrap'
+                  background: 'var(--field, #F8FAFC)',
+                  border: '1.5px solid var(--line, #E2E8F0)',
+                  borderRadius: '12px',
+                  padding: '9px 12px',
+                  gap: '8px'
                 }}
               >
-                <span
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: selectedDate ? 'var(--solid, #0B0B0C)' : 'var(--card)',
+                      color: selectedDate ? 'var(--on-solid, #FFFFFF)' : 'var(--ink, #0B0B0C)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      border: '1px solid var(--line)'
+                    }}
+                  >
+                    <Icon name="calendar" size={16} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '9.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted, #64748B)' }}>
+                      Selected Date (DD/MM/YYYY)
+                    </span>
+                    <span style={{ fontSize: '14px', fontWeight: selectedDate ? 800 : 500, color: selectedDate ? 'var(--ink, #0B0B0C)' : 'var(--muted, #64748B)', letterSpacing: '0.01em' }}>
+                      {selectedDate ? formatToDDMMYYYY(selectedDate) : 'DD/MM/YYYY — Tap a date below'}
+                    </span>
+                  </div>
+                </div>
+
+                {selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate('')}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      color: '#EF4444',
+                      fontSize: '11px',
+                      fontWeight: 750,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>Clear</span>
+                    <Icon name="x" size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Preset Buttons (Today, Yesterday, All) */}
+              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const todayIso = getLocalDateString(new Date());
+                    setSelectedDate(todayIso);
+                    const now = new Date();
+                    setCalViewYear(now.getFullYear());
+                    setCalViewMonth(now.getMonth());
+                  }}
                   style={{
-                    fontSize: '10.5px',
-                    fontWeight: 800,
-                    color: 'var(--ink, #0B0B0C)',
-                    opacity: 0.75,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.03em',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
+                    padding: '5px 11px',
+                    borderRadius: '8px',
+                    border: selectedDate === getLocalDateString(new Date()) ? '1.5px solid var(--solid, #0B0B0C)' : '1px solid var(--line)',
+                    background: selectedDate === getLocalDateString(new Date()) ? 'var(--solid, #0B0B0C)' : 'var(--card)',
+                    color: selectedDate === getLocalDateString(new Date()) ? 'var(--on-solid, #FFFFFF)' : 'var(--ink, #0B0B0C)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  Select Specific Date
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
+                  Today ({formatToDDMMYYYY(getLocalDateString(new Date()))})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const y = new Date();
+                    y.setDate(y.getDate() - 1);
+                    const yIso = getLocalDateString(y);
+                    setSelectedDate(yIso);
+                    setCalViewYear(y.getFullYear());
+                    setCalViewMonth(y.getMonth());
+                  }}
+                  style={{
+                    padding: '5px 11px',
+                    borderRadius: '8px',
+                    border: selectedDate === getLocalDateString(new Date(Date.now() - 86400000)) ? '1.5px solid var(--solid, #0B0B0C)' : '1px solid var(--line)',
+                    background: selectedDate === getLocalDateString(new Date(Date.now() - 86400000)) ? 'var(--solid, #0B0B0C)' : 'var(--card)',
+                    color: selectedDate === getLocalDateString(new Date(Date.now() - 86400000)) ? 'var(--on-solid, #FFFFFF)' : 'var(--ink, #0B0B0C)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Yesterday
+                </button>
+                {selectedDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate('')}
                     style={{
-                      border: '1px solid var(--line)',
-                      background: 'var(--field)',
-                      color: 'var(--ink, #0B0B0C)',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
+                      padding: '5px 11px',
                       borderRadius: '8px',
-                      padding: '5px 8px',
-                      outline: 'none',
-                      fontFamily: 'inherit',
-                      width: '130px'
+                      border: '1px solid var(--line)',
+                      background: 'var(--card)',
+                      color: 'var(--ink, #0B0B0C)',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
                     }}
-                  />
-                  {selectedDate && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDate('')}
+                  >
+                    All Dates
+                  </button>
+                )}
+              </div>
+
+              {/* Full Interactive Real Calendar Section */}
+              <div
+                style={{
+                  background: 'var(--card)',
+                  borderRadius: '14px',
+                  border: '1px solid var(--line)',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}
+              >
+                {/* Calendar Month & Year Navigation Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <button
+                    type="button"
+                    onClick={handlePrevMonth}
+                    aria-label="Previous Month"
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--field)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--ink, #0B0B0C)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Icon name="chevronLeft" size={16} />
+                  </button>
+
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--ink, #0B0B0C)', letterSpacing: '-0.01em' }}>
+                      {calMonthName} {calViewYear}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    aria-label="Next Month"
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--field)',
+                      border: '1px solid var(--line)',
+                      color: 'var(--ink, #0B0B0C)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Icon name="chevronRight" size={16} />
+                  </button>
+                </div>
+
+                {/* Day-of-week header row */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, 1fr)',
+                    textAlign: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                    <span
+                      key={d}
                       style={{
-                        padding: '5px 8px',
-                        borderRadius: '8px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        color: '#EF4444',
-                        fontSize: '11px',
+                        fontSize: '10.5px',
                         fontWeight: 750,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap'
+                        color: 'var(--muted, #64748B)',
+                        padding: '4px 0',
+                        textTransform: 'uppercase'
                       }}
                     >
-                      Clear ✕
-                    </button>
-                  )}
+                      {d}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Days Grid with interactive selection & ride presence indicators */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, 1fr)',
+                    gap: '4px'
+                  }}
+                >
+                  {Array.from({ length: calFirstDayIndex }).map((_, idx) => (
+                    <div key={`empty-${idx}`} style={{ height: '34px' }} />
+                  ))}
+
+                  {Array.from({ length: calDaysInMonth }).map((_, idx) => {
+                    const dayNum = idx + 1;
+                    const mStr = String(calViewMonth + 1).padStart(2, '0');
+                    const dStr = String(dayNum).padStart(2, '0');
+                    const isoDate = `${calViewYear}-${mStr}-${dStr}`;
+                    const isSelected = selectedDate === isoDate;
+                    const isToday = isoDate === todayDateStr;
+                    const hasTrip = tripsDateSet.has(isoDate);
+
+                    return (
+                      <button
+                        key={isoDate}
+                        type="button"
+                        onClick={() => handleSelectDay(dayNum)}
+                        title={formatToDDMMYYYY(isoDate)}
+                        style={{
+                          height: '34px',
+                          borderRadius: '9px',
+                          border: isSelected
+                            ? '1.5px solid var(--solid, #0B0B0C)'
+                            : isToday
+                              ? '1.5px solid var(--line-strong, #94A3B8)'
+                              : '1px solid transparent',
+                          background: isSelected
+                            ? 'var(--solid, #0B0B0C)'
+                            : isToday
+                              ? 'var(--field)'
+                              : 'transparent',
+                          color: isSelected
+                            ? 'var(--on-solid, #FFFFFF)'
+                            : 'var(--ink, #0B0B0C)',
+                          fontSize: '12px',
+                          fontWeight: isSelected ? 800 : isToday ? 750 : 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          padding: '0',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span>{dayNum}</span>
+                        {hasTrip && (
+                          <span
+                            style={{
+                              width: '4px',
+                              height: '4px',
+                              borderRadius: '50%',
+                              background: isSelected ? '#FFFFFF' : '#10B981',
+                              position: 'absolute',
+                              bottom: '3px'
+                            }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -615,7 +906,7 @@ export default function TripsTab() {
           )}
           {selectedDate && (
             <span style={{ fontSize: '11.5px', fontWeight: 700, background: 'var(--field)', color: 'var(--ink, #0B0B0C)', padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--line)' }}>
-              Date: {selectedDate}
+              Date: {formatToDDMMYYYY(selectedDate)}
             </span>
           )}
           {selectedMonthFilter !== 'all' && (
