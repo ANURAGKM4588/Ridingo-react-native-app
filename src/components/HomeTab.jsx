@@ -187,6 +187,8 @@ export default function HomeTab() {
     setSavedWorkLoc,
     savedPlacesLoc,
     setSavedPlacesLoc,
+    savedPlacesList,
+    addSavedPlace,
     updateSavedLocation,
     userThemeVal
   } = useApp();
@@ -210,6 +212,7 @@ export default function HomeTab() {
   const [homePickupSuggestions, setHomePickupSuggestions] = useState([]);
   const [homeDropSuggestions, setHomeDropSuggestions] = useState([]);
   const [homeActiveSuggestField, setHomeActiveSuggestField] = useState(null); // 'pickup' | 'drop' | null
+  const [homeShowingSavedPlaces, setHomeShowingSavedPlaces] = useState(null); // 'pickup' | 'drop' | null
   const [homeShakingField, setHomeShakingField] = useState(null); // 'pickup' | 'drop' | null
   const [homeIsDetectingCurrent, setHomeIsDetectingCurrent] = useState(false);
   const [homeIsSearchingPlaces, setHomeIsSearchingPlaces] = useState(false);
@@ -228,6 +231,7 @@ export default function HomeTab() {
   // Saved locations modal state
   const [addLocationModalType, setAddLocationModalType] = useState(null); // 'home' | 'work' | 'saved' | null
   const [addLocationTargetField, setAddLocationTargetField] = useState('pickup'); // 'pickup' | 'drop'
+  const [addLocationTitle, setAddLocationTitle] = useState('');
   const [addLocationInput, setAddLocationInput] = useState('');
   const [addLocationSuggestions, setAddLocationSuggestions] = useState([]);
   const [addLocationIsDetecting, setAddLocationIsDetecting] = useState(false);
@@ -310,7 +314,11 @@ export default function HomeTab() {
     const clean = cleanPlusCode(val);
     const short = getLocationUpToFirstComma(clean);
 
-    if (updateSavedLocation) {
+    if (addLocationModalType === 'saved') {
+      if (addSavedPlace) {
+        addSavedPlace(addLocationTitle || short, clean);
+      }
+    } else if (updateSavedLocation) {
       updateSavedLocation(addLocationModalType, clean);
     }
 
@@ -339,18 +347,20 @@ export default function HomeTab() {
     }
 
     if (addToast) {
-      const typeLabel = addLocationModalType === 'home' ? 'Home' : addLocationModalType === 'work' ? 'Work' : 'Saved place';
+      const typeLabel = addLocationModalType === 'home' ? 'Home' : addLocationModalType === 'work' ? 'Work' : (addLocationTitle || 'Saved place');
       const targetLabel = addLocationTargetField === 'pickup' ? 'Pickup' : 'Destination';
       addToast(`${typeLabel} address saved and set as ${targetLabel}: ${short}`, 'check');
     }
 
     setAddLocationModalType(null);
+    setAddLocationTitle('');
     setAddLocationInput('');
     setAddLocationSuggestions([]);
   };
 
   const handleCancelAddLocation = () => {
     setAddLocationModalType(null);
+    setAddLocationTitle('');
     setAddLocationInput('');
     setAddLocationSuggestions([]);
   };
@@ -515,30 +525,8 @@ export default function HomeTab() {
     } catch (_) {}
   };
 
-  const handleSelectHomeSavedPlace = (type, targetField = 'pickup') => {
+  const applyChosenSavedAddress = (label, rawAddr, targetField = 'pickup') => {
     try {
-      let rawAddr = '';
-      let label = '';
-      if (type === 'home') {
-        rawAddr = savedHomeLoc;
-        label = 'Home';
-      } else if (type === 'work') {
-        rawAddr = savedWorkLoc;
-        label = 'Work';
-      } else {
-        rawAddr = savedPlacesLoc;
-        label = 'Saved place';
-      }
-
-      if (!rawAddr || !rawAddr.trim()) {
-        setHomeActiveSuggestField(null);
-        setAddLocationTargetField(targetField);
-        setAddLocationModalType(type);
-        setAddLocationInput('');
-        setAddLocationSuggestions([]);
-        return;
-      }
-
       const clean = (cleanPlusCode ? cleanPlusCode(rawAddr.trim()) : rawAddr.trim()) || rawAddr.trim();
       const short = (getLocationUpToFirstComma ? getLocationUpToFirstComma(clean) : clean) || clean;
 
@@ -546,6 +534,7 @@ export default function HomeTab() {
         homePickupFullRef.current = clean;
         setHomePickup(short);
         setHomeActiveSuggestField(null);
+        setHomeShowingSavedPlaces(null);
         setHomePickupSuggestions([]);
         if (setBookingPickup) setBookingPickup(clean);
         geocodeAddress(clean).then((coords) => {
@@ -560,6 +549,7 @@ export default function HomeTab() {
         homeDropFullRef.current = clean;
         setHomeDrop(short);
         setHomeActiveSuggestField(null);
+        setHomeShowingSavedPlaces(null);
         setHomeDropSuggestions([]);
         if (setBookingDestination) setBookingDestination(clean);
         geocodeAddress(clean).then((coords) => {
@@ -571,6 +561,54 @@ export default function HomeTab() {
         }).catch(() => {});
         if (addToast) addToast(`Destination set to ${label}: ${short}`, 'check');
       }
+    } catch (err) {
+      console.error('[applyChosenSavedAddress error]', err);
+    }
+  };
+
+  const handleSelectHomeSavedPlace = (type, targetField = 'pickup') => {
+    try {
+      if (type === 'saved') {
+        const places = savedPlacesList || [];
+        if (places.length === 0) {
+          // No saved places yet -> open add/edit modal immediately
+          setHomeActiveSuggestField(null);
+          setHomeShowingSavedPlaces(null);
+          setAddLocationTargetField(targetField);
+          setAddLocationModalType('saved');
+          setAddLocationTitle('');
+          setAddLocationInput('');
+          setAddLocationSuggestions([]);
+          return;
+        }
+
+        // Has saved places -> list them in the dropdown!
+        setHomeShowingSavedPlaces(prev => prev === targetField ? null : targetField);
+        return;
+      }
+
+      let rawAddr = '';
+      let label = '';
+      if (type === 'home') {
+        rawAddr = savedHomeLoc;
+        label = 'Home';
+      } else if (type === 'work') {
+        rawAddr = savedWorkLoc;
+        label = 'Work';
+      }
+
+      if (!rawAddr || !rawAddr.trim()) {
+        setHomeActiveSuggestField(null);
+        setHomeShowingSavedPlaces(null);
+        setAddLocationTargetField(targetField);
+        setAddLocationModalType(type);
+        setAddLocationTitle('');
+        setAddLocationInput('');
+        setAddLocationSuggestions([]);
+        return;
+      }
+
+      applyChosenSavedAddress(label, rawAddr, targetField);
     } catch (err) {
       console.error('[handleSelectHomeSavedPlace error]', err);
     }
@@ -2426,9 +2464,124 @@ Live GPS Tracking: ${trackUrl}`;
                       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                     </svg>
                     <span>Saved</span>
-                    {savedPlacesLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                    {(savedPlacesList?.length > 0 || savedPlacesLoc) && (
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />
+                    )}
                   </button>
                 </div>
+
+                {/* 2.6 List of Saved Addresses (Opened when tapping Saved button) */}
+                {homeShowingSavedPlaces === 'pickup' && (
+                  <div style={{
+                    background: isDark ? '#1C1C1E' : '#F8FAFC',
+                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                    padding: '8px 10px',
+                    animation: 'fade 0.15s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', padding: '0 4px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#A1A1AA' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Saved Addresses ({(savedPlacesList || []).length})
+                      </div>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setHomeShowingSavedPlaces(null)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: isDark ? '#A1A1AA' : '#64748B',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: '2px 4px'
+                        }}
+                      >
+                        Close ✕
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '160px', overflowY: 'auto' }}>
+                      {(savedPlacesList || []).map((place) => (
+                        <button
+                          key={place.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => applyChosenSavedAddress(place.title, place.address, 'pickup')}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '7px 10px',
+                            borderRadius: '10px',
+                            background: isDark ? '#27272A' : '#FFFFFF',
+                            border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #E2E8F0',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            width: '100%',
+                            transition: 'background 0.12s ease'
+                          }}
+                        >
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '6px',
+                            background: isDark ? '#3F3F46' : '#FEF3C7',
+                            color: isDark ? '#FBBF24' : '#D97706',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {place.title || 'Saved Place'}
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {place.address}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+
+                      {/* Add New Saved Place quick button */}
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setHomeShowingSavedPlaces(null);
+                          setHomeActiveSuggestField(null);
+                          setAddLocationTargetField('pickup');
+                          setAddLocationModalType('saved');
+                          setAddLocationTitle('');
+                          setAddLocationInput('');
+                          setAddLocationSuggestions([]);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '7px 10px',
+                          borderRadius: '10px',
+                          background: isDark ? '#1F2937' : '#F1F5F9',
+                          border: isDark ? '1px dashed #4B5563' : '1px dashed #CBD5E1',
+                          color: isDark ? '#60A5FA' : '#2563EB',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          width: '100%',
+                          marginTop: '2px'
+                        }}
+                      >
+                        <span>+ Add New Saved Address</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 3. Loading State */}
                 {homeIsSearchingPlaces && (
@@ -2716,9 +2869,124 @@ Live GPS Tracking: ${trackUrl}`;
                       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                     </svg>
                     <span>Saved</span>
-                    {savedPlacesLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                    {(savedPlacesList?.length > 0 || savedPlacesLoc) && (
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />
+                    )}
                   </button>
                 </div>
+
+                {/* 2.6 List of Saved Addresses (Opened when tapping Saved button) */}
+                {homeShowingSavedPlaces === 'drop' && (
+                  <div style={{
+                    background: isDark ? '#1C1C1E' : '#F8FAFC',
+                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                    padding: '8px 10px',
+                    animation: 'fade 0.15s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', padding: '0 4px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: isDark ? '#A1A1AA' : '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Saved Addresses ({(savedPlacesList || []).length})
+                      </div>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setHomeShowingSavedPlaces(null)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: isDark ? '#A1A1AA' : '#64748B',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: '2px 4px'
+                        }}
+                      >
+                        Close ✕
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '160px', overflowY: 'auto' }}>
+                      {(savedPlacesList || []).map((place) => (
+                        <button
+                          key={place.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => applyChosenSavedAddress(place.title, place.address, 'drop')}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '7px 10px',
+                            borderRadius: '10px',
+                            background: isDark ? '#27272A' : '#FFFFFF',
+                            border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #E2E8F0',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            width: '100%',
+                            transition: 'background 0.12s ease'
+                          }}
+                        >
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '6px',
+                            background: isDark ? '#3F3F46' : '#FEF3C7',
+                            color: isDark ? '#FBBF24' : '#D97706',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {place.title || 'Saved Place'}
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {place.address}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+
+                      {/* Add New Saved Place quick button */}
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setHomeShowingSavedPlaces(null);
+                          setHomeActiveSuggestField(null);
+                          setAddLocationTargetField('drop');
+                          setAddLocationModalType('saved');
+                          setAddLocationTitle('');
+                          setAddLocationInput('');
+                          setAddLocationSuggestions([]);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '7px 10px',
+                          borderRadius: '10px',
+                          background: isDark ? '#1F2937' : '#F1F5F9',
+                          border: isDark ? '1px dashed #4B5563' : '1px dashed #CBD5E1',
+                          color: isDark ? '#60A5FA' : '#2563EB',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          width: '100%',
+                          marginTop: '2px'
+                        }}
+                      >
+                        <span>+ Add New Saved Address</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 3. Loading State */}
                 {homeIsSearchingPlaces && (
@@ -3874,6 +4142,33 @@ Live GPS Tracking: ${trackUrl}`;
               </svg>
               <span>{addLocationIsDetecting ? 'Detecting device GPS...' : 'Use My Current Location'}</span>
             </button>
+
+            {/* Optional Place Name / Label for Saved Places */}
+            {addLocationModalType === 'saved' && (
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: isDark ? '#A1A1AA' : '#64748B', marginBottom: '4px' }}>
+                  Place Label / Name
+                </label>
+                <input
+                  type="text"
+                  value={addLocationTitle}
+                  onChange={(e) => setAddLocationTitle(e.target.value)}
+                  placeholder="e.g. Gym, Parents' Home, Airport, Cafe..."
+                  style={{
+                    width: '100%',
+                    background: isDark ? '#141416' : '#F8FAFC',
+                    border: isDark ? '1px solid #3F3F46' : '1.5px solid #CBD5E1',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    color: isDark ? '#FFFFFF' : '#0F172A',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            )}
 
             {/* Search Input & Live Google Autocomplete */}
             <div style={{ position: 'relative', marginBottom: '18px' }}>

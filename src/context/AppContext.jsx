@@ -453,7 +453,71 @@ export function AppProvider({ children }) {
     try { return localStorage.getItem('ridingo_saved_places') || ''; } catch (_) { return ''; }
   });
 
-  const updateSavedLocation = (type, value) => {
+  // Multiple Saved Places List: [{ id, title, address }]
+  const [savedPlacesList, setSavedPlacesList] = useState(() => {
+    try {
+      const raw = localStorage.getItem('ridingo_saved_places_list');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      const legacy = localStorage.getItem('ridingo_saved_places');
+      if (legacy && legacy.trim()) {
+        const initial = [{ id: 'place-legacy', title: 'Saved Place', address: legacy.trim() }];
+        try { localStorage.setItem('ridingo_saved_places_list', JSON.stringify(initial)); } catch (_) {}
+        return initial;
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  const addSavedPlace = (title, address) => {
+    const cleanAddr = (address || '').trim();
+    if (!cleanAddr) return null;
+    const cleanTitle = (title || '').trim() || cleanAddr.split(',')[0] || 'Saved Place';
+    const newPlace = {
+      id: 'place-' + Date.now(),
+      title: cleanTitle,
+      address: cleanAddr
+    };
+    setSavedPlacesList(prev => {
+      const filtered = prev.filter(p => p.address.toLowerCase() !== cleanAddr.toLowerCase());
+      const updated = [newPlace, ...filtered];
+      try { localStorage.setItem('ridingo_saved_places_list', JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+    setSavedPlacesLoc(cleanAddr);
+    try { localStorage.setItem('ridingo_saved_places', cleanAddr); } catch (_) {}
+    return newPlace;
+  };
+
+  const updateSavedPlace = (id, title, address) => {
+    const cleanAddr = (address || '').trim();
+    if (!cleanAddr) return;
+    const cleanTitle = (title || '').trim() || cleanAddr.split(',')[0] || 'Saved Place';
+    setSavedPlacesList(prev => {
+      const updated = prev.map(p => p.id === id ? { ...p, title: cleanTitle, address: cleanAddr } : p);
+      try { localStorage.setItem('ridingo_saved_places_list', JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+    setSavedPlacesLoc(cleanAddr);
+    try { localStorage.setItem('ridingo_saved_places', cleanAddr); } catch (_) {}
+  };
+
+  const removeSavedPlace = (id) => {
+    setSavedPlacesList(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      try { localStorage.setItem('ridingo_saved_places_list', JSON.stringify(updated)); } catch (_) {}
+      const nextSingle = updated.length > 0 ? updated[0].address : '';
+      setSavedPlacesLoc(nextSingle);
+      try { localStorage.setItem('ridingo_saved_places', nextSingle); } catch (_) {}
+      return updated;
+    });
+  };
+
+  const updateSavedLocation = (type, value, title = '') => {
     const trimmed = (value || '').trim();
     if (type === 'home') {
       setSavedHomeLoc(trimmed);
@@ -464,6 +528,9 @@ export function AppProvider({ children }) {
     } else if (type === 'saved' || type === 'places') {
       setSavedPlacesLoc(trimmed);
       try { localStorage.setItem('ridingo_saved_places', trimmed); } catch (_) {}
+      if (trimmed) {
+        addSavedPlace(title || 'Saved Place', trimmed);
+      }
     }
   };
 
@@ -2527,6 +2594,11 @@ export function AppProvider({ children }) {
         setSavedWorkLoc,
         savedPlacesLoc,
         setSavedPlacesLoc,
+        savedPlacesList,
+        setSavedPlacesList,
+        addSavedPlace,
+        updateSavedPlace,
+        removeSavedPlace,
         updateSavedLocation
       }}
     >

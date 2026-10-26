@@ -8,7 +8,8 @@ import {
   setSelectedCustomTune,
   playCustomTone
 } from '../utils/audioTones';
-import { searchGooglePlaces } from '../services/googleMapsService';
+import { searchGooglePlaces, geocodeAddress, fetchNearestLandmarkByCoordinates } from '../services/googleMapsService';
+import { getDeviceLocation } from '../lib/deviceLocation';
 
 export default function ProfileTab() {
   const {
@@ -23,6 +24,10 @@ export default function ProfileTab() {
     savedHomeLoc,
     savedWorkLoc,
     savedPlacesLoc,
+    savedPlacesList,
+    addSavedPlace,
+    updateSavedPlace,
+    removeSavedPlace,
     updateSavedLocation
   } = useApp();
 
@@ -48,13 +53,28 @@ export default function ProfileTab() {
 
   // Saved Location editing state
   const [editingLocType, setEditingLocType] = useState(null); // 'home' | 'work' | 'saved'
+  const [editingLocId, setEditingLocId] = useState(null); // id when editing an existing saved place
+  const [editingLocTitle, setEditingLocTitle] = useState('');
   const [editingLocAddress, setEditingLocAddress] = useState('');
   const [locSuggestions, setLocSuggestions] = useState([]);
+  const [locIsDetecting, setLocIsDetecting] = useState(false);
 
-  const handleOpenEditLocation = (type) => {
+  const handleOpenEditLocation = (type, existingPlace = null) => {
     setEditingLocType(type);
-    const curVal = type === 'home' ? (savedHomeLoc || '') : type === 'work' ? (savedWorkLoc || '') : (savedPlacesLoc || '');
-    setEditingLocAddress(curVal);
+    if (existingPlace) {
+      setEditingLocId(existingPlace.id);
+      setEditingLocTitle(existingPlace.title || '');
+      setEditingLocAddress(existingPlace.address || '');
+    } else if (type === 'saved') {
+      setEditingLocId(null);
+      setEditingLocTitle('');
+      setEditingLocAddress('');
+    } else {
+      setEditingLocId(null);
+      setEditingLocTitle(type === 'home' ? 'Home' : 'Work');
+      const curVal = type === 'home' ? (savedHomeLoc || '') : (savedWorkLoc || '');
+      setEditingLocAddress(curVal);
+    }
     setLocSuggestions([]);
     setActiveModal('editLocation');
   };
@@ -76,7 +96,53 @@ export default function ProfileTab() {
   const handleSelectLocSuggestion = (item) => {
     const full = item.title + (item.sub ? `, ${item.sub}` : '');
     setEditingLocAddress(full);
+    if (editingLocType === 'saved' && !editingLocTitle.trim()) {
+      setEditingLocTitle(item.title);
+    }
     setLocSuggestions([]);
+  };
+
+  const handleUseCurrentLocationInProfile = async () => {
+    setLocIsDetecting(true);
+    try {
+      const pos = await getDeviceLocation(true);
+      if (pos) {
+        const lat = pos.coords?.latitude ?? pos.lat;
+        const lng = pos.coords?.longitude ?? pos.lng;
+        if (lat && lng) {
+          const coords = { lat: Number(lat), lng: Number(lng) };
+          let resolved = pos.address && !pos.address.startsWith('Location (') ? pos.address : null;
+          if (!resolved) {
+            try {
+              const landmark = await fetchNearestLandmarkByCoordinates(coords);
+              if (landmark) {
+                resolved = landmark.displayName || landmark.name || landmark.formattedAddress;
+              }
+            } catch (_) {}
+          }
+          if (!resolved) {
+            try {
+              const geocodeRes = await geocodeAddress(`${coords.lat},${coords.lng}`);
+              if (geocodeRes?.formatted) {
+                resolved = geocodeRes.formatted;
+              }
+            } catch (_) {}
+          }
+          const fullAddress = resolved || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+          setEditingLocAddress(fullAddress);
+          if (editingLocType === 'saved' && !editingLocTitle.trim()) {
+            setEditingLocTitle('My Location');
+          }
+          setLocSuggestions([]);
+          addToast('Detected current device location', 'check');
+        }
+      }
+    } catch (err) {
+      console.warn('GPS detection error in profile:', err);
+      addToast('Could not detect GPS location', 'alert');
+    } finally {
+      setLocIsDetecting(false);
+    }
   };
 
   const handleSaveLocationSetting = (e) => {
@@ -86,20 +152,39 @@ export default function ProfileTab() {
       addToast('Please enter an address or choose from suggestions', 'warn');
       return;
     }
-    if (updateSavedLocation) {
-      updateSavedLocation(editingLocType, val);
+
+    if (editingLocType === 'saved') {
+      const finalTitle = editingLocTitle.trim() || val.split(',')[0] || 'Saved Place';
+      if (editingLocId) {
+        if (updateSavedPlace) updateSavedPlace(editingLocId, finalTitle, val);
+        addToast(`Saved place updated: ${finalTitle}`, 'check');
+      } else {
+        if (addSavedPlace) addSavedPlace(finalTitle, val);
+        addToast(`New place saved: ${finalTitle}`, 'check');
+      }
+    } else {
+      if (updateSavedLocation) {
+        updateSavedLocation(editingLocType, val);
+      }
+      const label = editingLocType === 'home' ? 'Home' : 'Work';
+      addToast(`${label} address updated: ${val.split(',')[0]}`, 'check');
     }
-    const label = editingLocType === 'home' ? 'Home' : editingLocType === 'work' ? 'Work' : 'Saved Place';
-    addToast(`${label} address updated: ${val.split(',')[0]}`, 'check');
     setActiveModal(null);
   };
 
   const handleClearLocationSetting = () => {
-    if (updateSavedLocation) {
-      updateSavedLocation(editingLocType, '');
+    if (editingLocType === 'saved') {
+      if (editingLocId && removeSavedPlace) {
+        removeSavedPlace(editingLocId);
+        addToast('Saved place removed', 'info');
+      }
+    } else {
+      if (updateSavedLocation) {
+        updateSavedLocation(editingLocType, '');
+      }
+      const label = editingLocType === 'home' ? 'Home' : 'Work';
+      addToast(`${label} address removed`, 'info');
     }
-    const label = editingLocType === 'home' ? 'Home' : editingLocType === 'work' ? 'Work' : 'Saved Place';
-    addToast(`${label} address removed`, 'info');
     setActiveModal(null);
   };
 
@@ -411,27 +496,110 @@ export default function ProfileTab() {
           </div>
         </div>
 
-        {/* Saved Places */}
-        <div
-          className="prof-set-row"
-          style={{ cursor: 'pointer' }}
-          onClick={() => handleOpenEditLocation('saved')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0F172A', flexShrink: 0 }}>
-              <Icon name="star" size={16} />
+        {/* Saved Places List */}
+        {savedPlacesList && savedPlacesList.length > 0 ? (
+          savedPlacesList.map((place) => (
+            <div
+              key={place.id}
+              className="prof-set-row"
+              style={{ cursor: 'pointer' }}
+              onClick={() => handleOpenEditLocation('saved', place)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706', flexShrink: 0 }}>
+                  <Icon name="star" size={16} />
+                </div>
+                <div className="prof-set-info" style={{ flex: 1, minWidth: 0 }}>
+                  <b className="prof-set-title">{place.title || 'Saved Place'}</b>
+                  <span className="prof-set-sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {place.address}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="prof-set-action-btn">
+                  <span>Edit</span>
+                  <Icon name="chevronRight" size={15} />
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (removeSavedPlace) {
+                      removeSavedPlace(place.id);
+                      addToast(`Removed ${place.title || 'saved address'}`, 'info');
+                    }
+                  }}
+                  title="Delete address"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: 'none',
+                    color: '#EF4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    flexShrink: 0
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <div className="prof-set-info" style={{ flex: 1, minWidth: 0 }}>
-              <b className="prof-set-title">Saved Places</b>
-              <span className="prof-set-sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {savedPlacesLoc ? savedPlacesLoc : 'Frequent destinations & favorites'}
-              </span>
+          ))
+        ) : (
+          <div
+            className="prof-set-row"
+            style={{ cursor: 'pointer' }}
+            onClick={() => handleOpenEditLocation('saved')}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0F172A', flexShrink: 0 }}>
+                <Icon name="star" size={16} />
+              </div>
+              <div className="prof-set-info" style={{ flex: 1, minWidth: 0 }}>
+                <b className="prof-set-title">Saved Places</b>
+                <span className="prof-set-sub" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  No saved places yet · Tap to add
+                </span>
+              </div>
+            </div>
+            <div className="prof-set-action-btn">
+              <span>Add</span>
+              <Icon name="chevronRight" size={15} />
             </div>
           </div>
-          <div className="prof-set-action-btn">
-            <span>{savedPlacesLoc ? 'Edit' : 'Add'}</span>
-            <Icon name="chevronRight" size={15} />
-          </div>
+        )}
+
+        {/* Add Another Saved Place Button */}
+        <div style={{ padding: '8px 0 12px' }}>
+          <button
+            type="button"
+            onClick={() => handleOpenEditLocation('saved', null)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: '12px',
+              border: '1.5px dashed var(--line)',
+              background: 'transparent',
+              color: 'var(--ink)',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '15px', lineHeight: 1 }}>+</span>
+            <span>Add More Saved Places (Gym, Parents, Airport...)</span>
+          </button>
         </div>
       </div>
 
@@ -820,7 +988,15 @@ export default function ProfileTab() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
               <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: 'var(--ink)' }}>
                 {activeModal === 'editProfile' && 'Edit Profile & Details'}
-                {activeModal === 'editLocation' && `Edit ${editingLocType === 'home' ? 'Home' : editingLocType === 'work' ? 'Work' : 'Saved Place'} Address`}
+                {activeModal === 'editLocation' && (
+                  editingLocType === 'home'
+                    ? 'Edit Home Address'
+                    : editingLocType === 'work'
+                    ? 'Edit Work Address'
+                    : editingLocId
+                    ? 'Edit Saved Place'
+                    : 'Add New Saved Place'
+                )}
                 {activeModal === 'sos' && 'Emergency SOS Contacts'}
                 {activeModal === 'temp' && 'Cabin Climate & AC'}
                 {activeModal === 'lang' && 'Driver Languages'}
@@ -862,15 +1038,73 @@ export default function ProfileTab() {
                   Set your {editingLocType === 'home' ? 'Home' : editingLocType === 'work' ? 'Work' : 'Saved Place'} address for instant 1-tap bookings on the home screen.
                 </p>
 
+                {/* Optional Place Name / Label for Saved Places */}
+                {editingLocType === 'saved' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', marginBottom: '5px' }}>
+                      Place Label / Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingLocTitle}
+                      onChange={(e) => setEditingLocTitle(e.target.value)}
+                      placeholder="e.g. Gym, Parents' Home, Airport, Cafe..."
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '11px 14px',
+                        borderRadius: '12px',
+                        border: '1.5px solid var(--line)',
+                        background: 'var(--field)',
+                        color: 'var(--ink)',
+                        fontSize: '13.5px',
+                        fontWeight: 600,
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Quick Detect Button: Use Current GPS Location */}
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocationInProfile}
+                  disabled={locIsDetecting}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    background: 'var(--field)',
+                    border: '1px solid var(--line)',
+                    color: 'var(--ink)',
+                    fontSize: '12px',
+                    fontWeight: 650,
+                    cursor: locIsDetecting ? 'wait' : 'pointer',
+                    width: '100%'
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#00D09C', flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="7" />
+                    <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                    <line x1="12" y1="2" x2="12" y2="5" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                    <line x1="2" y1="12" x2="5" y2="12" />
+                    <line x1="19" y1="12" x2="22" y2="12" />
+                  </svg>
+                  <span>{locIsDetecting ? 'Detecting device GPS...' : 'Use My Current Location'}</span>
+                </button>
+
                 <div style={{ position: 'relative' }}>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', marginBottom: '5px' }}>
-                    {editingLocType === 'home' ? 'Home Address' : editingLocType === 'work' ? 'Work Address' : 'Saved Place Address'}
+                    {editingLocType === 'home' ? 'Home Address' : editingLocType === 'work' ? 'Work Address' : 'Address / Landmark'}
                   </label>
                   <input
                     type="text"
                     value={editingLocAddress}
                     onChange={(e) => handleLocInputChange(e.target.value)}
-                    placeholder={editingLocType === 'home' ? 'e.g., 14 Anna Nagar, Chennai' : editingLocType === 'work' ? 'e.g., Cyber Park, OMR, Chennai' : 'e.g., Phoenix Marketcity'}
+                    placeholder={editingLocType === 'home' ? 'e.g., 14 Anna Nagar, Chennai' : editingLocType === 'work' ? 'e.g., Cyber Park, OMR, Chennai' : 'Search street, building or landmark...'}
                     autoFocus
                     style={{
                       width: '100%',
@@ -937,7 +1171,7 @@ export default function ProfileTab() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                  {(editingLocType === 'home' ? savedHomeLoc : editingLocType === 'work' ? savedWorkLoc : savedPlacesLoc) && (
+                  {(editingLocType === 'home' ? savedHomeLoc : editingLocType === 'work' ? savedWorkLoc : Boolean(editingLocId)) && (
                     <button
                       type="button"
                       onClick={handleClearLocationSetting}
