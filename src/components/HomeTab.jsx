@@ -227,8 +227,10 @@ export default function HomeTab() {
 
   // Saved locations modal state
   const [addLocationModalType, setAddLocationModalType] = useState(null); // 'home' | 'work' | 'saved' | null
+  const [addLocationTargetField, setAddLocationTargetField] = useState('pickup'); // 'pickup' | 'drop'
   const [addLocationInput, setAddLocationInput] = useState('');
   const [addLocationSuggestions, setAddLocationSuggestions] = useState([]);
+  const [addLocationIsDetecting, setAddLocationIsDetecting] = useState(false);
 
   const getCurrentTimeHHMM = () => {
     const now = new Date();
@@ -259,22 +261,89 @@ export default function HomeTab() {
     }
   };
 
+  const handleUseCurrentLocationForSaved = async () => {
+    setAddLocationIsDetecting(true);
+    try {
+      const pos = await getDeviceLocation(true);
+      if (pos) {
+        const lat = pos.coords?.latitude ?? pos.lat;
+        const lng = pos.coords?.longitude ?? pos.lng;
+        if (lat && lng) {
+          const coords = { lat: Number(lat), lng: Number(lng) };
+          let resolved = pos.address && !pos.address.startsWith('Location (') ? pos.address : null;
+          if (!resolved) {
+            try {
+              const landmark = await fetchNearestLandmarkByCoordinates(coords);
+              if (landmark) {
+                resolved = landmark.displayName || landmark.name || landmark.formattedAddress;
+              }
+            } catch (_) {}
+          }
+          if (!resolved) {
+            try {
+              const geocodeRes = await geocodeAddress(`${coords.lat},${coords.lng}`);
+              if (geocodeRes?.formatted) {
+                resolved = geocodeRes.formatted;
+              }
+            } catch (_) {}
+          }
+          const fullAddress = resolved ? cleanLocationName(resolved) : `Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+          setAddLocationInput(fullAddress);
+          setAddLocationSuggestions([]);
+          if (addToast) addToast('Detected current device location', 'check');
+        }
+      }
+    } catch (err) {
+      console.warn('Detect current location error for saved modal:', err);
+      if (addToast) addToast('Could not detect GPS location', 'alert');
+    } finally {
+      setAddLocationIsDetecting(false);
+    }
+  };
+
   const handleSaveLocation = () => {
     const val = addLocationInput.trim();
     if (!val) {
       if (addToast) addToast('Please enter or select an address', 'info');
       return;
     }
+    const clean = cleanPlusCode(val);
+    const short = getLocationUpToFirstComma(clean);
+
     if (updateSavedLocation) {
-      updateSavedLocation(addLocationModalType, val);
+      updateSavedLocation(addLocationModalType, clean);
     }
-    homeDropFullRef.current = val;
-    setHomeDrop(getLocationUpToFirstComma(val));
-    if (setBookingDestination) setBookingDestination(val);
+
+    if (addLocationTargetField === 'pickup') {
+      homePickupFullRef.current = clean;
+      setHomePickup(short);
+      if (setBookingPickup) setBookingPickup(clean);
+      geocodeAddress(clean).then((coords) => {
+        if (coords) {
+          const cObj = { ...coords, formatted: clean };
+          setHomePickupCoords(cObj);
+          if (setBookingPickupCoords) setBookingPickupCoords(cObj);
+        }
+      });
+    } else {
+      homeDropFullRef.current = clean;
+      setHomeDrop(short);
+      if (setBookingDestination) setBookingDestination(clean);
+      geocodeAddress(clean).then((coords) => {
+        if (coords) {
+          const cObj = { ...coords, formatted: clean };
+          setHomeDropCoords(cObj);
+          if (setBookingDropCoords) setBookingDropCoords(cObj);
+        }
+      });
+    }
+
     if (addToast) {
       const typeLabel = addLocationModalType === 'home' ? 'Home' : addLocationModalType === 'work' ? 'Work' : 'Saved place';
-      addToast(`${typeLabel} address saved: ${getLocationUpToFirstComma(val)}`, 'check');
+      const targetLabel = addLocationTargetField === 'pickup' ? 'Pickup' : 'Destination';
+      addToast(`${typeLabel} address saved and set as ${targetLabel}: ${short}`, 'check');
     }
+
     setAddLocationModalType(null);
     setAddLocationInput('');
     setAddLocationSuggestions([]);
@@ -462,8 +531,10 @@ export default function HomeTab() {
 
     if (!rawAddr || !rawAddr.trim()) {
       setHomeActiveSuggestField(null);
+      setAddLocationTargetField(targetField);
       setAddLocationModalType(type);
-      if (addToast) addToast(`Please enter your ${label} address to save`, 'info');
+      setAddLocationInput('');
+      setAddLocationSuggestions([]);
       return;
     }
 
@@ -3676,87 +3747,147 @@ Live GPS Tracking: ${trackUrl}`;
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.65)',
+            background: 'rgba(15, 23, 42, 0.7)',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 999999,
+            zIndex: 9999999,
             padding: '16px'
           }}
           onClick={handleCancelAddLocation}
         >
           <div
             style={{
-              background: '#FFFFFF',
-              borderRadius: '26px',
-              padding: '24px 20px',
+              background: isDark ? '#1C1C1E' : '#FFFFFF',
+              color: isDark ? '#FFFFFF' : '#0F172A',
+              borderRadius: '24px',
+              padding: '22px 20px',
               width: '100%',
-              maxWidth: '420px',
-              boxShadow: '0 24px 50px -12px rgba(0, 0, 0, 0.28)',
+              maxWidth: '430px',
+              boxShadow: isDark ? '0 24px 60px rgba(0, 0, 0, 0.7)' : '0 24px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #E2E8F0',
               position: 'relative',
               boxSizing: 'border-box'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <div style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '50%',
-                background: addLocationModalType === 'saved' ? '#FEF3C7' : '#F1F5F9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: addLocationModalType === 'saved' ? '#EAB308' : '#0F172A',
-                flexShrink: 0
-              }}>
-                {addLocationModalType === 'home' && (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                )}
-                {addLocationModalType === 'work' && (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                  </svg>
-                )}
-                {addLocationModalType === 'saved' && (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#EAB308">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: addLocationModalType === 'saved' ? '#FEF3C7' : isDark ? '#27272A' : '#F1F5F9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: addLocationModalType === 'saved' ? '#D97706' : isDark ? '#FFFFFF' : '#0F172A',
+                  flexShrink: 0
+                }}>
+                  {addLocationModalType === 'home' && (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                  )}
+                  {addLocationModalType === 'work' && (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                  )}
+                  {addLocationModalType === 'saved' && (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                  )}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: isDark ? '#FFFFFF' : '#0F172A', lineHeight: 1.2 }}>
+                    {addLocationModalType === 'home' ? 'Add Home Location' : addLocationModalType === 'work' ? 'Add Work Location' : 'Add Saved Place'}
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: isDark ? '#A1A1AA' : '#64748B' }}>
+                    Will be set as {addLocationTargetField === 'pickup' ? 'Pickup' : 'Destination'}
+                  </p>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0F172A', lineHeight: 1.2 }}>
-                  {addLocationModalType === 'home' ? 'Add Home Location' : addLocationModalType === 'work' ? 'Add Work Location' : 'Add Saved Place'}
-                </h3>
-                <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#64748B' }}>
-                  Save address for quick 1-tap bookings
-                </p>
-              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={handleCancelAddLocation}
+                aria-label="Close"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: isDark ? '#27272A' : '#F1F5F9',
+                  border: 'none',
+                  color: isDark ? '#A1A1AA' : '#64748B',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              >
+                <Icon name="x" size={15} />
+              </button>
             </div>
 
-            {/* Input & Autocomplete */}
+            {/* Quick Detect Button: Use Current GPS Location */}
+            <button
+              type="button"
+              onClick={handleUseCurrentLocationForSaved}
+              disabled={addLocationIsDetecting}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 12px',
+                borderRadius: '12px',
+                background: isDark ? '#27272A' : '#F8FAFC',
+                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #E2E8F0',
+                color: isDark ? '#FFFFFF' : '#0F172A',
+                fontSize: '12.5px',
+                fontWeight: 650,
+                cursor: addLocationIsDetecting ? 'wait' : 'pointer',
+                marginBottom: '12px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#00D09C', flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="7" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                <line x1="12" y1="2" x2="12" y2="5" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="5" y2="12" />
+                <line x1="19" y1="12" x2="22" y2="12" />
+              </svg>
+              <span>{addLocationIsDetecting ? 'Detecting device GPS...' : 'Use My Current Location'}</span>
+            </button>
+
+            {/* Search Input & Live Google Autocomplete */}
             <div style={{ position: 'relative', marginBottom: '18px' }}>
               <input
                 type="text"
                 value={addLocationInput}
                 onChange={(e) => handleAddLocationInputChange(e.target.value)}
-                placeholder={addLocationModalType === 'home' ? 'e.g. Indiranagar 100ft Road, Bengaluru' : addLocationModalType === 'work' ? 'e.g. Cyberpark, Kozhikode' : 'e.g. City Center Mall, MG Road'}
+                placeholder={addLocationModalType === 'home' ? 'Search street, building or area...' : addLocationModalType === 'work' ? 'Search office, tech park or landmark...' : 'Search area, landmark or street...'}
                 autoFocus
                 style={{
                   width: '100%',
-                  background: '#F8FAFC',
-                  border: '1.5px solid #CBD5E1',
-                  borderRadius: '16px',
+                  background: isDark ? '#141416' : '#F8FAFC',
+                  border: isDark ? '1px solid #3F3F46' : '1.5px solid #CBD5E1',
+                  borderRadius: '14px',
                   padding: '12px 14px',
-                  fontSize: '14.5px',
-                  color: '#0F172A',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: isDark ? '#FFFFFF' : '#0F172A',
                   outline: 'none',
                   boxSizing: 'border-box'
                 }}
@@ -3769,12 +3900,12 @@ Live GPS Tracking: ${trackUrl}`;
                   top: 'calc(100% + 4px)',
                   left: 0,
                   right: 0,
-                  background: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '16px',
-                  boxShadow: '0 12px 30px rgba(0,0,0,0.14)',
+                  background: isDark ? '#1C1C1E' : '#FFFFFF',
+                  border: isDark ? '1px solid #3F3F46' : '1px solid #E2E8F0',
+                  borderRadius: '14px',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.2)',
                   zIndex: 10,
-                  maxHeight: '200px',
+                  maxHeight: '190px',
                   overflowY: 'auto'
                 }}>
                   {addLocationSuggestions.map((item, idx) => (
@@ -3787,14 +3918,14 @@ Live GPS Tracking: ${trackUrl}`;
                       }}
                       style={{
                         padding: '10px 14px',
-                        borderBottom: '1px solid #F1F5F9',
+                        borderBottom: isDark ? '1px solid #27272A' : '1px solid #F1F5F9',
                         cursor: 'pointer',
-                        fontSize: '13.5px',
-                        color: '#0F172A'
+                        fontSize: '13px',
+                        color: isDark ? '#FFFFFF' : '#0F172A'
                       }}
                     >
                       <div style={{ fontWeight: 700 }}>{item.title}</div>
-                      {item.sub && <div style={{ fontSize: '11.5px', color: '#64748B' }}>{item.sub}</div>}
+                      {item.sub && <div style={{ fontSize: '11px', color: isDark ? '#A1A1AA' : '#64748B', marginTop: '1px' }}>{item.sub}</div>}
                     </div>
                   ))}
                 </div>
@@ -3807,12 +3938,12 @@ Live GPS Tracking: ${trackUrl}`;
                 type="button"
                 onClick={handleCancelAddLocation}
                 style={{
-                  padding: '10px 20px',
+                  padding: '10px 18px',
                   borderRadius: '999px',
-                  border: '1.5px solid #E2E8F0',
-                  background: '#F8FAFC',
-                  color: '#475569',
-                  fontSize: '14px',
+                  border: isDark ? '1px solid #3F3F46' : '1.5px solid #E2E8F0',
+                  background: isDark ? '#27272A' : '#F8FAFC',
+                  color: isDark ? '#A1A1AA' : '#475569',
+                  fontSize: '13.5px',
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'background 0.15s ease'
@@ -3824,19 +3955,19 @@ Live GPS Tracking: ${trackUrl}`;
                 type="button"
                 onClick={handleSaveLocation}
                 style={{
-                  padding: '10px 24px',
+                  padding: '10px 22px',
                   borderRadius: '999px',
                   border: 'none',
-                  background: '#061B16',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
+                  background: isDark ? '#FFFFFF' : '#000000',
+                  color: isDark ? '#000000' : '#FFFFFF',
+                  fontSize: '13.5px',
                   fontWeight: 800,
                   cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(6, 27, 22, 0.28)',
+                  boxShadow: isDark ? '0 4px 14px rgba(255, 255, 255, 0.12)' : '0 4px 14px rgba(0, 0, 0, 0.25)',
                   transition: 'transform 0.15s ease'
                 }}
               >
-                Save
+                Save & Set Location
               </button>
             </div>
           </div>
