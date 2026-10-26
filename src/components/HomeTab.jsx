@@ -446,6 +446,61 @@ export default function HomeTab() {
     } catch (_) {}
   };
 
+  const handleSelectHomeSavedPlace = (type, targetField = 'pickup') => {
+    let rawAddr = '';
+    let label = '';
+    if (type === 'home') {
+      rawAddr = savedHomeLoc;
+      label = 'Home';
+    } else if (type === 'work') {
+      rawAddr = savedWorkLoc;
+      label = 'Work';
+    } else {
+      rawAddr = savedPlacesLoc;
+      label = 'Saved place';
+    }
+
+    if (!rawAddr || !rawAddr.trim()) {
+      setHomeActiveSuggestField(null);
+      setAddLocationModalType(type);
+      if (addToast) addToast(`Please enter your ${label} address to save`, 'info');
+      return;
+    }
+
+    const clean = cleanPlusCode(rawAddr.trim());
+    const short = getLocationUpToFirstComma(clean);
+
+    if (targetField === 'pickup') {
+      homePickupFullRef.current = clean;
+      setHomePickup(short);
+      setHomeActiveSuggestField(null);
+      setHomePickupSuggestions([]);
+      if (setBookingPickup) setBookingPickup(clean);
+      geocodeAddress(clean).then((coords) => {
+        if (coords) {
+          const cObj = { ...coords, formatted: clean };
+          setHomePickupCoords(cObj);
+          if (setBookingPickupCoords) setBookingPickupCoords(cObj);
+        }
+      });
+      if (addToast) addToast(`Pickup set to ${label}: ${short}`, 'check');
+    } else {
+      homeDropFullRef.current = clean;
+      setHomeDrop(short);
+      setHomeActiveSuggestField(null);
+      setHomeDropSuggestions([]);
+      if (setBookingDestination) setBookingDestination(clean);
+      geocodeAddress(clean).then((coords) => {
+        if (coords) {
+          const cObj = { ...coords, formatted: clean };
+          setHomeDropCoords(cObj);
+          if (setBookingDropCoords) setBookingDropCoords(cObj);
+        }
+      });
+      if (addToast) addToast(`Destination set to ${label}: ${short}`, 'check');
+    }
+  };
+
   const handleHomeUseCurrentLocation = async (target = 'pickup') => {
     setHomeIsDetectingCurrent(true);
     setHomeActiveSuggestField(null);
@@ -2199,6 +2254,107 @@ Live GPS Tracking: ${trackUrl}`;
                   </div>
                 </button>
 
+                {/* 2.5 Minimal Saved Locations (Home, Work, Saved) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                    background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectHomeSavedPlace('home', 'pickup')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 11px',
+                      borderRadius: '999px',
+                      border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                      background: isDark ? '#1C1C1E' : '#FFFFFF',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <span>Home</span>
+                    {savedHomeLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectHomeSavedPlace('work', 'pickup')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 11px',
+                      borderRadius: '999px',
+                      border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                      background: isDark ? '#1C1C1E' : '#FFFFFF',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                    <span>Work</span>
+                    {savedWorkLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectHomeSavedPlace('saved', 'pickup')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 11px',
+                      borderRadius: '999px',
+                      border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                      background: isDark ? '#1C1C1E' : '#FFFFFF',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span>Saved</span>
+                    {savedPlacesLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                  </button>
+                </div>
+
                 {/* 3. Loading State */}
                 {homeIsSearchingPlaces && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', color: isDark ? '#A1A1AA' : '#64748B', fontSize: '12px' }}>
@@ -2387,6 +2543,107 @@ Live GPS Tracking: ${trackUrl}`;
                     </div>
                   </div>
                 </button>
+
+                {/* 2.5 Minimal Saved Locations (Home, Work, Saved) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                    background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                    overflowX: 'auto',
+                    scrollbarWidth: 'none'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectHomeSavedPlace('home', 'drop')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 11px',
+                      borderRadius: '999px',
+                      border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                      background: isDark ? '#1C1C1E' : '#FFFFFF',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <span>Home</span>
+                    {savedHomeLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectHomeSavedPlace('work', 'drop')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 11px',
+                      borderRadius: '999px',
+                      border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                      background: isDark ? '#1C1C1E' : '#FFFFFF',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                    <span>Work</span>
+                    {savedWorkLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelectHomeSavedPlace('saved', 'drop')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '5px 11px',
+                      borderRadius: '999px',
+                      border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                      background: isDark ? '#1C1C1E' : '#FFFFFF',
+                      color: isDark ? '#FFFFFF' : '#0F172A',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span>Saved</span>
+                    {savedPlacesLoc && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />}
+                  </button>
+                </div>
 
                 {/* 3. Loading State */}
                 {homeIsSearchingPlaces && (
