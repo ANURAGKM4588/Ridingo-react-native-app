@@ -6383,6 +6383,47 @@ body[data-theme="dark"] .onboarding-continue-btn {
   border-bottom: none !important;
 }
 
+/* Minimal Dropdown Elements */
+.location-suggest-dropdown.minimal-dropdown {
+  border-radius: 14px !important;
+  padding: 4px 0 !important;
+}
+
+.loc-suggest-icon-bubble {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.loc-suggest-item:hover .loc-suggest-icon-bubble,
+.loc-suggest-item:active .loc-suggest-icon-bubble {
+  transform: scale(1.06);
+}
+
+.loc-suggest-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loc-suggest-sub {
+  font-size: 11.5px;
+  line-height: 1.3;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .loc-suggest-item:hover,
 .loc-suggest-item:focus,
 .loc-suggest-item:active {
@@ -9194,7 +9235,7 @@ body.app-offline-mode .action-btn {
   }
 }
 
-/* 7. Bottom Navigation Bar: Fixed with Consistent Padding */
+/* 7. Bottom Navigation Bar: Static at Bottom with Equal 12px Left, Right & Bottom Spacing */
 #d-nav,
 #u-nav,
 body.standalone-driver .nav,
@@ -9203,14 +9244,14 @@ body.standalone-app .nav,
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
-  bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 12px) !important;
+  bottom: 12px !important;
   transform: translateX(-50%) !important;
-  width: calc(100% - 28px) !important;
+  width: calc(100% - 24px) !important;
   max-width: 520px !important;
   min-width: 320px !important;
-  height: 62px !important;
-  min-height: 62px !important;
-  padding: 6px 10px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  padding: 4px 8px !important;
   border-radius: 999px !important;
   border: 1px solid var(--line, #E5E5EA) !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
@@ -9223,6 +9264,26 @@ body.standalone-app .nav,
   align-items: center !important;
   gap: 6px !important;
   box-sizing: border-box !important;
+  transition: opacity 0.18s ease, transform 0.18s ease !important;
+}
+
+/* Hide Bottom Nav completely when Keyboard or Input is active to prevent floating on top of keyboard */
+body.keyboard-open #u-nav,
+body.keyboard-open #d-nav,
+body.keyboard-open .nav,
+body:has(input:focus) #u-nav,
+body:has(input:focus) #d-nav,
+body:has(input:focus) .nav,
+body:has(textarea:focus) #u-nav,
+body:has(textarea:focus) #d-nav,
+body:has(textarea:focus) .nav,
+body:has(.location-suggest-dropdown) #u-nav,
+body:has(.location-suggest-dropdown) #d-nav,
+body:has(.location-suggest-dropdown) .nav {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* Remove the old yellow top strip from mobile */
@@ -9296,8 +9357,8 @@ body.standalone-app .nv.on {
   body.standalone-app .nav,
   .nav {
     position: fixed !important;
-    bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 12px) !important;
-    width: 100% !important;
+    bottom: 12px !important;
+    width: calc(100% - 24px) !important;
     min-width: 380px !important;
     max-width: 520px !important;
     padding: 6px 10px !important;

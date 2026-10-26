@@ -221,78 +221,7 @@ export default function HomeTab() {
   });
   const [homeMapTarget, setHomeMapTarget] = useState('drop');
 
-  // Auto-detect device current location on initial mount of HomeTab
-  useEffect(() => {
-    let isMounted = true;
-
-    // If pickup already provided by booking context, use that
-    if (bookingPickup && bookingPickup.trim()) {
-      setHomePickup(bookingPickup);
-      if (bookingPickupCoords) setHomePickupCoords(bookingPickupCoords);
-      return;
-    }
-
-    // 1. Immediately apply cached device location if available (0ms instant startup)
-    const cached = getCachedDeviceLocation();
-    if (cached && cached.lat && cached.lng) {
-      const cCoords = { lat: Number(cached.lat), lng: Number(cached.lng) };
-      setHomePickupCoords(cCoords);
-      if (setBookingPickupCoords) setBookingPickupCoords(cCoords);
-      if (cached.address && !cached.address.startsWith('Location (')) {
-        const cleanCached = cleanLocationName(cached.address);
-        setHomePickup(cleanCached);
-        if (setBookingPickup) setBookingPickup(cleanCached);
-      }
-    }
-
-    // 2. Fetch fresh real device GPS location from native device / browser
-    (async () => {
-      try {
-        const pos = await getDeviceLocation(false);
-        if (!isMounted || !pos) return;
-
-        const lat = pos.coords?.latitude ?? pos.lat;
-        const lng = pos.coords?.longitude ?? pos.lng;
-
-        if (lat && lng) {
-          const coords = { lat: Number(lat), lng: Number(lng) };
-          setHomePickupCoords(coords);
-          if (setBookingPickupCoords) setBookingPickupCoords(coords);
-
-          // Resolve human-readable Indian street / landmark name via Google Geocoding
-          let resolved = pos.address && !pos.address.startsWith('Location (') ? pos.address : null;
-          if (!resolved) {
-            try {
-              const landmark = await fetchNearestLandmarkByCoordinates(coords);
-              if (isMounted && landmark) {
-                resolved = landmark.displayName || landmark.name || landmark.formattedAddress;
-              }
-            } catch (_) {}
-          }
-          if (!resolved) {
-            try {
-              const geocodeRes = await geocodeAddress(`${coords.lat},${coords.lng}`);
-              if (isMounted && geocodeRes?.formatted) {
-                resolved = geocodeRes.formatted;
-              }
-            } catch (_) {}
-          }
-
-          if (isMounted && resolved) {
-            const cleanResolved = cleanLocationName(resolved);
-            setHomePickup(cleanResolved);
-            if (setBookingPickup) setBookingPickup(cleanResolved);
-          }
-        }
-      } catch (err) {
-        console.warn('[HomeTab] Device location auto-detect notice:', err);
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Manual location selection only: no auto-selected default location on startup
 
   // Saved locations modal state
   const [addLocationModalType, setAddLocationModalType] = useState(null); // 'home' | 'work' | 'saved' | null
@@ -507,7 +436,7 @@ export default function HomeTab() {
     } catch (_) {}
   };
 
-  const handleHomeUseCurrentLocation = async () => {
+  const handleHomeUseCurrentLocation = async (target = 'pickup') => {
     setHomeIsDetectingCurrent(true);
     setHomeActiveSuggestField(null);
     try {
@@ -517,8 +446,6 @@ export default function HomeTab() {
         const lng = pos.coords?.longitude ?? pos.lng;
         if (lat && lng) {
           const coords = { lat: Number(lat), lng: Number(lng) };
-          setHomePickupCoords(coords);
-          if (setBookingPickupCoords) setBookingPickupCoords(coords);
 
           let resolved = pos.address && !pos.address.startsWith('Location (') ? pos.address : null;
           if (!resolved) {
@@ -539,9 +466,19 @@ export default function HomeTab() {
           }
 
           const finalName = resolved ? cleanLocationName(resolved) : `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
-          setHomePickup(finalName);
-          if (setBookingPickup) setBookingPickup(finalName);
-          if (addToast) addToast(`Pickup set to current location: ${finalName.split(',')[0]}`, 'check');
+          if (target === 'drop') {
+            setHomeDropCoords(coords);
+            if (setBookingDropCoords) setBookingDropCoords(coords);
+            setHomeDrop(finalName);
+            if (setBookingDestination) setBookingDestination(finalName);
+            if (addToast) addToast(`Destination set to current location: ${finalName.split(',')[0]}`, 'check');
+          } else {
+            setHomePickupCoords(coords);
+            if (setBookingPickupCoords) setBookingPickupCoords(coords);
+            setHomePickup(finalName);
+            if (setBookingPickup) setBookingPickup(finalName);
+            if (addToast) addToast(`Pickup set to current location: ${finalName.split(',')[0]}`, 'check');
+          }
         } else {
           if (addToast) addToast('Could not retrieve GPS coordinates. Please check location permissions.', 'alert');
         }
@@ -580,8 +517,18 @@ export default function HomeTab() {
   );
 
   const handleHomeBookDriver = () => {
-    const finalPickup = homePickup?.trim() || 'Indiranagar, Bengaluru';
-    const finalDrop = homeDrop?.trim() || 'Cheranalloor Rd, near SBI Branch Edap';
+    const finalPickup = homePickup?.trim();
+    const finalDrop = homeDrop?.trim();
+    if (!finalPickup || !finalDrop) {
+      if (!finalPickup) {
+        setHomeShakingField('pickup');
+        setTimeout(() => setHomeShakingField(null), 600);
+      } else {
+        setHomeShakingField('drop');
+        setTimeout(() => setHomeShakingField(null), 600);
+      }
+      return;
+    }
 
     // Pre-fill fields into shared booking state
     if (setBookingPickup) setBookingPickup(finalPickup);
@@ -2150,169 +2097,31 @@ Live GPS Tracking: ${trackUrl}`;
               </button>
             )}
 
-            {/* Suggestions Dropdown for Pickup (Monochrome Black & White) */}
+            {/* Minimal Dropdown for Pickup */}
             {homeActiveSuggestField === 'pickup' && (
               <div
-                className="location-suggest-dropdown"
+                className="location-suggest-dropdown minimal-dropdown"
                 style={{
                   zIndex: 99999999,
-                  maxHeight: '300px',
+                  maxHeight: '280px',
                   overflowY: 'auto',
                   WebkitOverflowScrolling: 'touch',
-                  background: isDark ? '#111113' : '#FFFFFF',
-                  border: isDark ? '1px solid #27272A' : '1px solid #000000',
-                  boxShadow: isDark ? '0 12px 36px rgba(0,0,0,0.6)' : '0 12px 36px rgba(0,0,0,0.22)'
+                  background: isDark ? '#141416' : '#FFFFFF',
+                  border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                  borderRadius: '14px',
+                  boxShadow: isDark ? '0 16px 40px rgba(0,0,0,0.6)' : '0 12px 32px rgba(0,0,0,0.12)',
+                  padding: '4px 0'
                 }}
               >
-                {/* 1. SAVED LOCATIONS ROW AT VERY TOP OF DROPDOWN */}
-                <div
-                  style={{
-                    padding: '8px 12px 10px',
-                    borderBottom: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                    background: isDark ? '#18181B' : '#F8FAFC'
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: '10.5px',
-                      fontWeight: 750,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      color: isDark ? '#A1A1AA' : '#71717A',
-                      marginBottom: '6px'
-                    }}
-                  >
-                    Saved Locations
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                    {/* Home */}
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        if (savedHomeLoc) {
-                          setHomePickup(savedHomeLoc);
-                          if (setBookingPickup) setBookingPickup(savedHomeLoc);
-                          setHomeActiveSuggestField(null);
-                        } else {
-                          setAddLocationModalType('home');
-                          setAddLocationInput('');
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        padding: '7px 8px',
-                        borderRadius: '8px',
-                        border: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                        background: isDark ? '#27272A' : '#FFFFFF',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
-                          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                          <polyline points="9 22 9 12 15 12 15 22" />
-                        </svg>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000' }}>Home</span>
-                      </div>
-                      <span style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                        {savedHomeLoc ? savedHomeLoc.split(',')[0] : '+ Add'}
-                      </span>
-                    </button>
-
-                    {/* Work */}
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        if (savedWorkLoc) {
-                          setHomePickup(savedWorkLoc);
-                          if (setBookingPickup) setBookingPickup(savedWorkLoc);
-                          setHomeActiveSuggestField(null);
-                        } else {
-                          setAddLocationModalType('work');
-                          setAddLocationInput('');
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        padding: '7px 8px',
-                        borderRadius: '8px',
-                        border: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                        background: isDark ? '#27272A' : '#FFFFFF',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
-                          <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
-                          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                        </svg>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000' }}>Work</span>
-                      </div>
-                      <span style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                        {savedWorkLoc ? savedWorkLoc.split(',')[0] : '+ Add'}
-                      </span>
-                    </button>
-
-                    {/* Saved Places */}
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        if (savedPlacesLoc) {
-                          setHomePickup(savedPlacesLoc);
-                          if (setBookingPickup) setBookingPickup(savedPlacesLoc);
-                          setHomeActiveSuggestField(null);
-                        } else {
-                          setAddLocationModalType('saved');
-                          setAddLocationInput('');
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        padding: '7px 8px',
-                        borderRadius: '8px',
-                        border: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                        background: isDark ? '#27272A' : '#FFFFFF',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
-                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                        </svg>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000' }}>Saved</span>
-                      </div>
-                      <span style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                        {savedPlacesLoc ? savedPlacesLoc.split(',')[0] : '+ Add'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Device Current Location Quick Select Action (Black & White Style) */}
+                {/* 1. Use Current Location Action */}
                 <button
                   type="button"
                   className="loc-suggest-item"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={handleHomeUseCurrentLocation}
-                  style={{
-                    background: isDark ? '#141416' : '#FFFFFF',
-                    borderBottom: isDark ? '1px solid #27272A' : '1px solid #E4E4E7'
-                  }}
+                  onClick={() => handleHomeUseCurrentLocation('pickup')}
                 >
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: isDark ? '#FFFFFF' : '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#000000' : '#FFFFFF', flexShrink: 0 }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="loc-suggest-icon-bubble" style={{ background: isDark ? '#27272A' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="7" />
                       <circle cx="12" cy="12" r="2.5" fill="currentColor" />
                       <line x1="12" y1="2" x2="12" y2="5" />
@@ -2322,27 +2131,51 @@ Live GPS Tracking: ${trackUrl}`;
                     </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000', lineHeight: 1.35 }}>
+                    <div className="loc-suggest-title" style={{ color: isDark ? '#FFFFFF' : '#0F172A' }}>
                       Use Current Location
                     </div>
-                    <div style={{ fontSize: '11.5px', color: isDark ? '#A1A1AA' : '#64748B', lineHeight: 1.3 }}>
-                      {homePickupCoords ? `GPS (${Number(homePickupCoords.lat).toFixed(4)}, ${Number(homePickupCoords.lng).toFixed(4)})` : 'Detect live device location'}
+                    <div className="loc-suggest-sub" style={{ color: isDark ? '#A1A1AA' : '#64748B' }}>
+                      {homePickupCoords ? `GPS (${Number(homePickupCoords.lat).toFixed(4)}, ${Number(homePickupCoords.lng).toFixed(4)})` : 'Detect live device GPS location'}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 2. Choose on map Action */}
+                <button
+                  type="button"
+                  className="loc-suggest-item"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleHomeOpenMap('pickup')}
+                >
+                  <div className="loc-suggest-icon-bubble" style={{ background: isDark ? '#27272A' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                      <line x1="9" y1="3" x2="9" y2="18" />
+                      <line x1="15" y1="6" x2="15" y2="21" />
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <div className="loc-suggest-title" style={{ color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                      Choose on map
+                    </div>
+                    <div className="loc-suggest-sub" style={{ color: isDark ? '#A1A1AA' : '#64748B' }}>
+                      Pin pickup location on real-time map
                     </div>
                   </div>
                 </button>
 
                 {/* 3. Loading State */}
                 {homeIsSearchingPlaces && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 14px', color: isDark ? '#A1A1AA' : '#64748B', fontSize: '12.5px' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', color: isDark ? '#A1A1AA' : '#64748B', fontSize: '12px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
                       <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
                       <path d="M12 2a10 10 0 0 1 10 10" />
                     </svg>
-                    <span>Searching Google Maps places...</span>
+                    <span>Searching places...</span>
                   </div>
                 )}
 
-                {/* 4. Google Maps Autocomplete Suggestions List (Monochrome Black & White) */}
+                {/* 4. Places Autocomplete Suggestions */}
                 {homePickupSuggestions.map((item, idx) => (
                   <button
                     key={idx}
@@ -2350,29 +2183,24 @@ Live GPS Tracking: ${trackUrl}`;
                     className="loc-suggest-item"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleSelectHomePickupPlace(item)}
-                    style={{
-                      borderBottom: isDark ? '1px solid #27272A' : '1px solid #F4F4F5'
-                    }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill={isDark ? '#FFFFFF' : '#000000'} style={{ flexShrink: 0, marginTop: '2px' }} aria-hidden="true">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </svg>
+                    <div className="loc-suggest-icon-bubble" style={{ background: isDark ? '#27272A' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor" />
+                      </svg>
+                    </div>
                     <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: isDark ? '#FFFFFF' : '#000000', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className="loc-suggest-title" style={{ color: isDark ? '#FFFFFF' : '#0F172A' }}>
                         {highlightMatchGoogleStock(item.title, homePickup)}
                       </div>
                       {item.sub && (
-                        <div style={{ fontSize: '12px', color: isDark ? '#A1A1AA' : '#71717A', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        <div className="loc-suggest-sub" style={{ color: isDark ? '#A1A1AA' : '#64748B' }}>
                           {item.sub}
                         </div>
                       )}
                     </div>
                   </button>
                 ))}
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '6px 14px', borderTop: isDark ? '1px solid #27272A' : '1px solid #E4E4E7' }}>
-                  <span style={{ fontSize: '11px', color: isDark ? '#A1A1AA' : '#71717A', marginRight: '4px' }}>powered by Google</span>
-                </div>
               </div>
             )}
           </div>
@@ -2452,168 +2280,30 @@ Live GPS Tracking: ${trackUrl}`;
               </button>
             )}
 
-            {/* Suggestions Dropdown for Destination (Monochrome Black & White) */}
+            {/* Minimal Dropdown for Destination */}
             {homeActiveSuggestField === 'drop' && (
               <div
-                className="location-suggest-dropdown"
+                className="location-suggest-dropdown minimal-dropdown"
                 style={{
                   zIndex: 99999999,
-                  maxHeight: '300px',
+                  maxHeight: '280px',
                   overflowY: 'auto',
                   WebkitOverflowScrolling: 'touch',
-                  background: isDark ? '#111113' : '#FFFFFF',
-                  border: isDark ? '1px solid #27272A' : '1px solid #000000',
-                  boxShadow: isDark ? '0 12px 36px rgba(0,0,0,0.6)' : '0 12px 36px rgba(0,0,0,0.22)'
+                  background: isDark ? '#141416' : '#FFFFFF',
+                  border: isDark ? '1px solid #27272A' : '1px solid #E2E8F0',
+                  borderRadius: '14px',
+                  boxShadow: isDark ? '0 16px 40px rgba(0,0,0,0.6)' : '0 12px 32px rgba(0,0,0,0.12)',
+                  padding: '4px 0'
                 }}
               >
-                {/* 1. SAVED LOCATIONS ROW AT VERY TOP OF DROPDOWN */}
-                <div
-                  style={{
-                    padding: '8px 12px 10px',
-                    borderBottom: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                    background: isDark ? '#18181B' : '#F8FAFC'
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: '10.5px',
-                      fontWeight: 750,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      color: isDark ? '#A1A1AA' : '#71717A',
-                      marginBottom: '6px'
-                    }}
-                  >
-                    Saved Locations
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                    {/* Home */}
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        if (savedHomeLoc) {
-                          setHomeDrop(savedHomeLoc);
-                          if (setBookingDestination) setBookingDestination(savedHomeLoc);
-                          setHomeActiveSuggestField(null);
-                        } else {
-                          setAddLocationModalType('home');
-                          setAddLocationInput('');
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        padding: '7px 8px',
-                        borderRadius: '8px',
-                        border: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                        background: isDark ? '#27272A' : '#FFFFFF',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
-                          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                          <polyline points="9 22 9 12 15 12 15 22" />
-                        </svg>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000' }}>Home</span>
-                      </div>
-                      <span style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                        {savedHomeLoc ? savedHomeLoc.split(',')[0] : '+ Add'}
-                      </span>
-                    </button>
-
-                    {/* Work */}
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        if (savedWorkLoc) {
-                          setHomeDrop(savedWorkLoc);
-                          if (setBookingDestination) setBookingDestination(savedWorkLoc);
-                          setHomeActiveSuggestField(null);
-                        } else {
-                          setAddLocationModalType('work');
-                          setAddLocationInput('');
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        padding: '7px 8px',
-                        borderRadius: '8px',
-                        border: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                        background: isDark ? '#27272A' : '#FFFFFF',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
-                          <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
-                          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                        </svg>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000' }}>Work</span>
-                      </div>
-                      <span style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                        {savedWorkLoc ? savedWorkLoc.split(',')[0] : '+ Add'}
-                      </span>
-                    </button>
-
-                    {/* Saved Places */}
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        if (savedPlacesLoc) {
-                          setHomeDrop(savedPlacesLoc);
-                          if (setBookingDestination) setBookingDestination(savedPlacesLoc);
-                          setHomeActiveSuggestField(null);
-                        } else {
-                          setAddLocationModalType('saved');
-                          setAddLocationInput('');
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        padding: '7px 8px',
-                        borderRadius: '8px',
-                        border: isDark ? '1px solid #27272A' : '1px solid #E4E4E7',
-                        background: isDark ? '#27272A' : '#FFFFFF',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '2px' }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: isDark ? '#FFFFFF' : '#000000' }}>
-                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                        </svg>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000' }}>Saved</span>
-                      </div>
-                      <span style={{ fontSize: '10.5px', color: isDark ? '#A1A1AA' : '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                        {savedPlacesLoc ? savedPlacesLoc.split(',')[0] : '+ Add'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Choose on map Quick Action (Black & White Style) */}
+                {/* 1. Choose on map Action */}
                 <button
                   type="button"
                   className="loc-suggest-item"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleHomeOpenMap('drop')}
-                  style={{
-                    background: isDark ? '#141416' : '#FFFFFF',
-                    borderBottom: isDark ? '1px solid #27272A' : '1px solid #E4E4E7'
-                  }}
                 >
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: isDark ? '#FFFFFF' : '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#000000' : '#FFFFFF', flexShrink: 0 }}>
+                  <div className="loc-suggest-icon-bubble" style={{ background: isDark ? '#27272A' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
                       <line x1="9" y1="3" x2="9" y2="18" />
@@ -2621,27 +2311,54 @@ Live GPS Tracking: ${trackUrl}`;
                     </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: isDark ? '#FFFFFF' : '#000000', lineHeight: 1.35 }}>
+                    <div className="loc-suggest-title" style={{ color: isDark ? '#FFFFFF' : '#0F172A' }}>
                       Choose on map
                     </div>
-                    <div style={{ fontSize: '11.5px', color: isDark ? '#A1A1AA' : '#64748B', lineHeight: 1.3 }}>
-                      Select destination directly on real-time map
+                    <div className="loc-suggest-sub" style={{ color: isDark ? '#A1A1AA' : '#64748B' }}>
+                      Pin destination on real-time map
+                    </div>
+                  </div>
+                </button>
+
+                {/* 2. Use Current Location Action */}
+                <button
+                  type="button"
+                  className="loc-suggest-item"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleHomeUseCurrentLocation('drop')}
+                >
+                  <div className="loc-suggest-icon-bubble" style={{ background: isDark ? '#27272A' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="7" />
+                      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                      <line x1="12" y1="2" x2="12" y2="5" />
+                      <line x1="12" y1="19" x2="12" y2="22" />
+                      <line x1="2" y1="12" x2="5" y2="12" />
+                      <line x1="19" y1="12" x2="22" y2="12" />
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <div className="loc-suggest-title" style={{ color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                      Use Current Location
+                    </div>
+                    <div className="loc-suggest-sub" style={{ color: isDark ? '#A1A1AA' : '#64748B' }}>
+                      Detect live device GPS location
                     </div>
                   </div>
                 </button>
 
                 {/* 3. Loading State */}
                 {homeIsSearchingPlaces && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 14px', color: isDark ? '#A1A1AA' : '#64748B', fontSize: '12.5px' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', color: isDark ? '#A1A1AA' : '#64748B', fontSize: '12px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
                       <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
                       <path d="M12 2a10 10 0 0 1 10 10" />
                     </svg>
-                    <span>Searching Google Maps places...</span>
+                    <span>Searching places...</span>
                   </div>
                 )}
 
-                {/* 4. Google Maps Autocomplete Suggestions List (Monochrome Black & White) */}
+                {/* 4. Places Autocomplete Suggestions */}
                 {homeDropSuggestions.map((item, idx) => (
                   <button
                     key={idx}
@@ -2649,29 +2366,24 @@ Live GPS Tracking: ${trackUrl}`;
                     className="loc-suggest-item"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => handleSelectHomeDropPlace(item)}
-                    style={{
-                      borderBottom: isDark ? '1px solid #27272A' : '1px solid #F4F4F5'
-                    }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill={isDark ? '#FFFFFF' : '#000000'} style={{ flexShrink: 0, marginTop: '2px' }} aria-hidden="true">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </svg>
+                    <div className="loc-suggest-icon-bubble" style={{ background: isDark ? '#27272A' : '#F1F5F9', color: isDark ? '#FFFFFF' : '#0F172A' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor" />
+                      </svg>
+                    </div>
                     <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: isDark ? '#FFFFFF' : '#000000', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className="loc-suggest-title" style={{ color: isDark ? '#FFFFFF' : '#0F172A' }}>
                         {highlightMatchGoogleStock(item.title, homeDrop)}
                       </div>
                       {item.sub && (
-                        <div style={{ fontSize: '12px', color: isDark ? '#A1A1AA' : '#71717A', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        <div className="loc-suggest-sub" style={{ color: isDark ? '#A1A1AA' : '#64748B' }}>
                           {item.sub}
                         </div>
                       )}
                     </div>
                   </button>
                 ))}
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '6px 14px', borderTop: isDark ? '1px solid #27272A' : '1px solid #E4E4E7' }}>
-                  <span style={{ fontSize: '11px', color: isDark ? '#A1A1AA' : '#71717A', marginRight: '4px' }}>powered by Google</span>
-                </div>
               </div>
             )}
           </div>
