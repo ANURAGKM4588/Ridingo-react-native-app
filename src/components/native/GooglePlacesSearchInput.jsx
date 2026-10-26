@@ -617,15 +617,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
+    zIndex: 99999999,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 10
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.16,
+        shadowRadius: 14
       },
       android: {
-        elevation: 5
+        elevation: 99999999
       }
     })
   },

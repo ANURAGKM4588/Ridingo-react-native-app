@@ -2035,7 +2035,10 @@ Live GPS Tracking: ${trackUrl}`;
       <div className="home-hero-split-grid">
         <div className="home-hero-col-booking">
           {/* HERO BOOKING CARD (Exact Copy of Screenshot Design) */}
-          <div className="home-booking-hero-card stagger-3">
+          <div
+            className={`home-booking-hero-card stagger-3 ${homeActiveSuggestField ? 'has-active-dropdown' : ''}`}
+            style={{ position: 'relative', zIndex: homeActiveSuggestField ? 999999 : 2 }}
+          >
         {/* Background Graphic with Light Line Pattern Only (No Car, No Green Line) */}
         <div className="home-booking-hero-bg" aria-hidden="true">
           <svg width="250" height="150" viewBox="0 0 250 150" fill="none" style={{ position: 'absolute', top: 0, right: 0, pointerEvents: 'none' }}>
@@ -2056,7 +2059,7 @@ Live GPS Tracking: ${trackUrl}`;
         </div>
 
         {/* Route Fields (Two Separate Capsules with Dashed Connector Line) */}
-        <div style={{ position: 'relative', zIndex: 1, marginBottom: '14px' }}>
+        <div style={{ position: 'relative', zIndex: homeActiveSuggestField ? 9999999 : 1, marginBottom: '14px' }}>
           {/* Top-layer Continuous Dashed Route Line connecting Pickup to Destination (with generous gap spacing from pins) */}
           <div
             aria-hidden="true"
@@ -2075,7 +2078,7 @@ Live GPS Tracking: ${trackUrl}`;
           {/* Pickup Capsule */}
           <div
             className={`home-capsule-input-box ${homeShakingField === 'pickup' ? 'shake-attention' : ''}`}
-            style={{ zIndex: homeActiveSuggestField === 'pickup' ? 9999 : 2, marginBottom: '10px' }}
+            style={{ zIndex: homeActiveSuggestField === 'pickup' ? 99999999 : 2, marginBottom: '10px' }}
           >
             {/* Green Location Pin */}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="#10B981" style={{ flexShrink: 0, position: 'relative', zIndex: 11 }}>
@@ -2152,13 +2155,13 @@ Live GPS Tracking: ${trackUrl}`;
               <div
                 className="location-suggest-dropdown"
                 style={{
-                  zIndex: 99999,
+                  zIndex: 99999999,
                   maxHeight: '300px',
                   overflowY: 'auto',
                   WebkitOverflowScrolling: 'touch',
                   background: isDark ? '#111113' : '#FFFFFF',
                   border: isDark ? '1px solid #27272A' : '1px solid #000000',
-                  boxShadow: isDark ? '0 8px 30px rgba(0,0,0,0.6)' : '0 8px 24px rgba(0,0,0,0.15)'
+                  boxShadow: isDark ? '0 12px 36px rgba(0,0,0,0.6)' : '0 12px 36px rgba(0,0,0,0.22)'
                 }}
               >
                 {/* 1. SAVED LOCATIONS ROW AT VERY TOP OF DROPDOWN */}
@@ -2377,7 +2380,7 @@ Live GPS Tracking: ${trackUrl}`;
           {/* Destination Capsule */}
           <div
             className={`home-capsule-input-box ${homeShakingField === 'drop' ? 'shake-attention' : ''}`}
-            style={{ zIndex: homeActiveSuggestField === 'drop' ? 9999 : 1 }}
+            style={{ zIndex: homeActiveSuggestField === 'drop' ? 99999999 : 1 }}
           >
             {/* Location Pin */}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="#EF4444" style={{ flexShrink: 0, position: 'relative', zIndex: 11 }}>
@@ -2454,13 +2457,13 @@ Live GPS Tracking: ${trackUrl}`;
               <div
                 className="location-suggest-dropdown"
                 style={{
-                  zIndex: 99999,
+                  zIndex: 99999999,
                   maxHeight: '300px',
                   overflowY: 'auto',
                   WebkitOverflowScrolling: 'touch',
                   background: isDark ? '#111113' : '#FFFFFF',
                   border: isDark ? '1px solid #27272A' : '1px solid #000000',
-                  boxShadow: isDark ? '0 8px 30px rgba(0,0,0,0.6)' : '0 8px 24px rgba(0,0,0,0.15)'
+                  boxShadow: isDark ? '0 12px 36px rgba(0,0,0,0.6)' : '0 12px 36px rgba(0,0,0,0.22)'
                 }}
               >
                 {/* 1. SAVED LOCATIONS ROW AT VERY TOP OF DROPDOWN */}
@@ -2674,21 +2677,22 @@ Live GPS Tracking: ${trackUrl}`;
           </div>
         </div>
 
-        {/* CTA Button: Dark Container with 'Book a Driver' and Action Circle with ↗ */}
+        {/* CTA Button: Solid Black Container with 'Book a Driver' and White Round Icon with Black Arrow */}
         <button
           type="button"
           onClick={handleHomeBookDriver}
           disabled={!isHomeBookingReady}
           className={`home-book-btn-container ${!isHomeBookingReady ? 'is-disabled' : ''}`}
           aria-label="Book a Driver"
+          style={{ background: '#000000', border: '1.5px solid #000000' }}
         >
           <span style={{ flex: 1, textAlign: 'center', color: '#FFFFFF', fontSize: '16.5px', fontWeight: 800, letterSpacing: '-0.01em', paddingLeft: '24px' }}>
             Book a Driver
           </span>
-          <div className="home-book-btn-circle">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="7" y1="17" x2="17" y2="7" />
-              <polyline points="7 7 17 7 17 17" />
+          <div className="home-book-btn-circle" style={{ background: '#FFFFFF', color: '#000000' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#000000' }}>
+              <line x1="7" y1="17" x2="17" y2="7" stroke="#000000" />
+              <polyline points="7 7 17 7 17 17" stroke="#000000" />
             </svg>
           </div>
         </button>

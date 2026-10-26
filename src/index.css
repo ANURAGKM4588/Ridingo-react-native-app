@@ -1206,11 +1206,11 @@ body.standalone-app .map-picker-foot {
 
 /* Classic Tab Bar */
 .nav {
-  position: absolute;
+  position: fixed !important;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 10;
+  z-index: 100;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   height: auto;
@@ -6332,8 +6332,8 @@ body[data-theme="dark"] .onboarding-continue-btn {
   background: #FFFFFF !important;
   border-radius: 10px;
   border: 1px solid #000000 !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
-  z-index: 99999 !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 99999999 !important;
   overflow: hidden;
   max-height: 320px;
   overflow-y: auto;
@@ -6344,7 +6344,8 @@ body[data-theme="dark"] .onboarding-continue-btn {
 [data-theme="dark"] .location-suggest-dropdown {
   background: #111113 !important;
   border: 1px solid #3F3F46 !important;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7) !important;
+  z-index: 99999999 !important;
 }
 
 @keyframes dropSlideDown {
@@ -7500,7 +7501,7 @@ body[data-theme="dark"] .onboarding-continue-btn {
   box-sizing: border-box !important;
   border-radius: 14px !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16) !important;
-  z-index: 99999 !important;
+  z-index: 99999999 !important;
   overflow-x: hidden !important;
 }
 
@@ -8041,6 +8042,7 @@ body[data-theme="dark"] .onboarding-continue-btn {
   background: #1C1C1E !important;
   border-color: #2C2C2E !important;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5) !important;
+  z-index: 99999999 !important;
 }
 [data-theme="dark"] .loc-suggest-item {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
@@ -8754,9 +8756,10 @@ body.app-offline-mode .action-btn {
   color: #000000 !important;
 }
 
-/* CTA Button Container */
+/* CTA Button Container: Solid black with white round icon and black arrow */
 .home-book-btn-container {
-  background: #061B16;
+  background: #000000 !important;
+  color: #FFFFFF !important;
   border-radius: 9999px;
   height: var(--book-cta-height);
   padding: 6px 7px 6px 24px;
@@ -8764,17 +8767,25 @@ body.app-offline-mode .action-btn {
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  border: 1px solid rgba(0, 208, 156, 0.2);
+  border: 1.5px solid #000000 !important;
   width: 100%;
   box-sizing: border-box;
-  box-shadow: 0 8px 24px rgba(6, 27, 22, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   margin-top: 14px;
 }
 
+[data-theme="dark"] .home-book-btn-container,
+:root[data-theme="dark"] .home-book-btn-container {
+  background: #000000 !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6) !important;
+}
+
 .home-book-btn-container:hover:not(.is-disabled) {
+  background: #000000 !important;
   transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgba(6, 27, 22, 0.45);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }
 
 .home-book-btn-container:active:not(.is-disabled) {
@@ -8791,18 +8802,31 @@ body.app-offline-mode .action-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #2DD4BF;
+  background: #FFFFFF !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #061B16;
+  color: #000000 !important;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
+.home-book-btn-circle svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+.home-book-btn-container:hover:not(.is-disabled) .home-book-btn-circle {
+  background: #FFFFFF !important;
+  color: #000000 !important;
+  transform: scale(1.05);
+}
+
 .home-book-btn-container.is-disabled .home-book-btn-circle {
-  background: #64748B;
-  color: #FFFFFF;
+  background: #FFFFFF !important;
+  color: #000000 !important;
+  opacity: 0.9;
 }
 
 /* =========================================================================
@@ -9170,7 +9194,7 @@ body.app-offline-mode .action-btn {
   }
 }
 
-/* 7. Apple-Grade Floating Island Navigation Dock for Entire App (Mobile, Tablet & Laptop) */
+/* 7. Bottom Navigation Bar: Fixed with Consistent Padding */
 #d-nav,
 #u-nav,
 body.standalone-driver .nav,
@@ -9179,14 +9203,14 @@ body.standalone-app .nav,
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
-  bottom: max(calc(env(safe-area-inset-bottom, 0px) + 8px), 12px) !important;
+  bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 12px) !important;
   transform: translateX(-50%) !important;
   width: calc(100% - 28px) !important;
   max-width: 520px !important;
   min-width: 320px !important;
-  height: 60px !important;
-  min-height: 60px !important;
-  padding: 5px 8px !important;
+  height: 62px !important;
+  min-height: 62px !important;
+  padding: 6px 10px !important;
   border-radius: 999px !important;
   border: 1px solid var(--line, #E5E5EA) !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
@@ -9262,7 +9286,7 @@ body.standalone-app .nv.on {
 #d-content,
 #u-content,
 .content {
-  padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 115px) !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 96px) !important;
 }
 
 @media (min-width: 768px) {
@@ -9271,18 +9295,19 @@ body.standalone-app .nv.on {
   body.standalone-driver .nav,
   body.standalone-app .nav,
   .nav {
-    bottom: 22px !important;
-    width: auto !important;
-    min-width: 480px !important;
-    max-width: 580px !important;
-    padding: 6px 14px !important;
-    gap: 8px !important;
+    position: fixed !important;
+    bottom: max(calc(env(safe-area-inset-bottom, 0px) + 10px), 12px) !important;
+    width: 100% !important;
+    min-width: 380px !important;
+    max-width: 520px !important;
+    padding: 6px 10px !important;
+    gap: 6px !important;
   }
 
   #d-content,
   #u-content,
   .content {
-    padding-bottom: 110px !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 96px) !important;
   }
 }
 

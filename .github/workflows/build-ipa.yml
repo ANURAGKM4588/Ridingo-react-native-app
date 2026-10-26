@@ -1,0 +1,123 @@
+name: Build iOS IPA Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'App to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - user
+          - driver
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'package.json'
+      - '.github/workflows/build-ipa.yml'
+
+permissions:
+  contents: write
+
+env:
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://xxmcjgonsxpjrgdxchwl.supabase.co' }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_xsxb_nMEozSSKCReR_DzkA_aXJIp--c' }}
+
+jobs:
+  build-ipa:
+    name: Build iOS IPA (${{ inputs.target || 'all' }})
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install root dependencies & build React Web bundle
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+
+      - name: Compile standalone package distributions
+        run: node scripts/build-apps.js
+
+      # --- 1. User App IPA ---
+      - name: Build Ridingo-User.ipa
+        if: ${{ inputs.target == 'all' || inputs.target == 'user' || github.event_name == 'push' }}
+        run: |
+          echo "📦 Building User App IPA..."
+          cd packages/user
+          npm install --legacy-peer-deps
+          sed -i '' "s/platform :ios, '13.0'/platform :ios, '15.0'/g" ios/App/Podfile 2>/dev/null || true
+          npx cap sync ios
+          cd ios/App
+          pod install || pod install --repo-update || true
+          xcodebuild build \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+          
+          rm -rf Payload
+          mkdir -p Payload
+          if [ -d "build/Build/Products/Release-iphoneos/App.app" ]; then
+            cp -r build/Build/Products/Release-iphoneos/App.app Payload/
+          else
+            cp -r build/Build/Products/Release-iphoneos/*.app Payload/
+          fi
+          mkdir -p "${{ github.workspace }}/build-outputs"
+          zip -r -q "${{ github.workspace }}/build-outputs/Ridingo-User.ipa" Payload
+          echo "✅ Ridingo-User.ipa successfully generated"
+
+      # --- 2. Driver App IPA ---
+      - name: Build Ridingo-Driver.ipa
+        if: ${{ inputs.target == 'all' || inputs.target == 'driver' || github.event_name == 'push' }}
+        run: |
+          echo "📦 Building Driver App IPA..."
+          cd packages/driver
+          npm install --legacy-peer-deps
+          sed -i '' "s/platform :ios, '13.0'/platform :ios, '15.0'/g" ios/App/Podfile 2>/dev/null || true
+          npx cap sync ios
+          cd ios/App
+          pod install || pod install --repo-update || true
+          xcodebuild build \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+          rm -rf Payload
+          mkdir -p Payload
+          if [ -d "build/Build/Products/Release-iphoneos/App.app" ]; then
+            cp -r build/Build/Products/Release-iphoneos/App.app Payload/
+          else
+            cp -r build/Build/Products/Release-iphoneos/*.app Payload/
+          fi
+          mkdir -p "${{ github.workspace }}/build-outputs"
+          zip -r -q "${{ github.workspace }}/build-outputs/Ridingo-Driver.ipa" Payload
+          echo "✅ Ridingo-Driver.ipa successfully generated"
+
+      - name: Upload IPA Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ridingo-iOS-IPA-Packages
+          path: build-outputs/*.ipa
+          if-no-files-found: error

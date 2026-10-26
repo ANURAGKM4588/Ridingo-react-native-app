@@ -1851,9 +1851,9 @@ export default function BookingSheet() {
                     </div>
                   </div>
 
-                  <div className="bk-route-fields">
+                  <div className="bk-route-fields" style={{ position: 'relative', zIndex: activeSuggestField ? 9999999 : 1 }}>
                     {/* Pickup Input Section */}
-                    <div className="bk-route-section loc-input-wrap" style={{ position: 'relative', zIndex: activeSuggestField === 'pickup' ? 99999 : 1 }}>
+                    <div className="bk-route-section loc-input-wrap" style={{ position: 'relative', zIndex: activeSuggestField === 'pickup' ? 99999999 : 1 }}>
                       <div className="bk-route-header">
                         <label className="bk-route-label" htmlFor="bk-pickup-input">PICKUP LOCATION</label>
                         <button
@@ -1931,7 +1931,7 @@ export default function BookingSheet() {
 
                         {/* Google Maps Stock Location Suggestions Dropdown for Pickup */}
                         {activeSuggestField === 'pickup' && Boolean(pickup?.trim()?.length >= 1) && pickupSuggestions.length > 0 && (
-                          <div className="location-suggest-dropdown" style={{ zIndex: 99999, maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                          <div className="location-suggest-dropdown" style={{ zIndex: 99999999, maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
                             {pickupSuggestions.map((item, idx) => (
                               <button
                                 key={idx}
@@ -1966,7 +1966,7 @@ export default function BookingSheet() {
                     <div className="bk-route-divider" />
 
                     {/* Destination Input Section */}
-                    <div className="bk-route-section loc-input-wrap" style={{ position: 'relative', zIndex: activeSuggestField === 'drop' ? 99999 : 1 }}>
+                    <div className="bk-route-section loc-input-wrap" style={{ position: 'relative', zIndex: activeSuggestField === 'drop' ? 99999999 : 1 }}>
                       <div className="bk-route-header">
                         <label className="bk-route-label" htmlFor="bk-drop-input">DESTINATION LOCATION</label>
                         <button
@@ -2024,7 +2024,7 @@ export default function BookingSheet() {
 
                         {/* Google Maps Stock Location Suggestions Dropdown for Destination */}
                         {activeSuggestField === 'drop' && Boolean(drop?.trim()?.length >= 1) && dropSuggestions.length > 0 && (
-                          <div className="location-suggest-dropdown" style={{ zIndex: 99999, maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                          <div className="location-suggest-dropdown" style={{ zIndex: 99999999, maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
                             {dropSuggestions.map((item, idx) => (
                               <button
                                 key={idx}
