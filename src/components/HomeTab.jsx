@@ -13,7 +13,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { generateTripTicketImage } from '../utils/tripTicketGenerator';
 import TripTicketModal from './TripTicketModal';
 import { shareTicketImageWithCaption } from '../services/installedUpiService';
-import { cleanLocationName, getLocationUpToFirstComma } from '../utils/locationCleaner';
+import { cleanLocationName, cleanPlusCode, getLocationUpToFirstComma } from '../utils/locationCleaner';
 import { fetchGoogleRoadDirections, searchGooglePlaces, fetchPlaceDetails, geocodeAddress, fetchNearestLandmarkByCoordinates } from '../services/googleMapsService';
 import { getActiveOfferBanners, subscribeToOfferBanners } from '../services/bannerService';
 import { POPULAR_DESTINATIONS } from '../data/popularDestinations';
@@ -516,59 +516,63 @@ export default function HomeTab() {
   };
 
   const handleSelectHomeSavedPlace = (type, targetField = 'pickup') => {
-    let rawAddr = '';
-    let label = '';
-    if (type === 'home') {
-      rawAddr = savedHomeLoc;
-      label = 'Home';
-    } else if (type === 'work') {
-      rawAddr = savedWorkLoc;
-      label = 'Work';
-    } else {
-      rawAddr = savedPlacesLoc;
-      label = 'Saved place';
-    }
+    try {
+      let rawAddr = '';
+      let label = '';
+      if (type === 'home') {
+        rawAddr = savedHomeLoc;
+        label = 'Home';
+      } else if (type === 'work') {
+        rawAddr = savedWorkLoc;
+        label = 'Work';
+      } else {
+        rawAddr = savedPlacesLoc;
+        label = 'Saved place';
+      }
 
-    if (!rawAddr || !rawAddr.trim()) {
-      setHomeActiveSuggestField(null);
-      setAddLocationTargetField(targetField);
-      setAddLocationModalType(type);
-      setAddLocationInput('');
-      setAddLocationSuggestions([]);
-      return;
-    }
+      if (!rawAddr || !rawAddr.trim()) {
+        setHomeActiveSuggestField(null);
+        setAddLocationTargetField(targetField);
+        setAddLocationModalType(type);
+        setAddLocationInput('');
+        setAddLocationSuggestions([]);
+        return;
+      }
 
-    const clean = cleanPlusCode(rawAddr.trim());
-    const short = getLocationUpToFirstComma(clean);
+      const clean = (cleanPlusCode ? cleanPlusCode(rawAddr.trim()) : rawAddr.trim()) || rawAddr.trim();
+      const short = (getLocationUpToFirstComma ? getLocationUpToFirstComma(clean) : clean) || clean;
 
-    if (targetField === 'pickup') {
-      homePickupFullRef.current = clean;
-      setHomePickup(short);
-      setHomeActiveSuggestField(null);
-      setHomePickupSuggestions([]);
-      if (setBookingPickup) setBookingPickup(clean);
-      geocodeAddress(clean).then((coords) => {
-        if (coords) {
-          const cObj = { ...coords, formatted: clean };
-          setHomePickupCoords(cObj);
-          if (setBookingPickupCoords) setBookingPickupCoords(cObj);
-        }
-      });
-      if (addToast) addToast(`Pickup set to ${label}: ${short}`, 'check');
-    } else {
-      homeDropFullRef.current = clean;
-      setHomeDrop(short);
-      setHomeActiveSuggestField(null);
-      setHomeDropSuggestions([]);
-      if (setBookingDestination) setBookingDestination(clean);
-      geocodeAddress(clean).then((coords) => {
-        if (coords) {
-          const cObj = { ...coords, formatted: clean };
-          setHomeDropCoords(cObj);
-          if (setBookingDropCoords) setBookingDropCoords(cObj);
-        }
-      });
-      if (addToast) addToast(`Destination set to ${label}: ${short}`, 'check');
+      if (targetField === 'pickup') {
+        homePickupFullRef.current = clean;
+        setHomePickup(short);
+        setHomeActiveSuggestField(null);
+        setHomePickupSuggestions([]);
+        if (setBookingPickup) setBookingPickup(clean);
+        geocodeAddress(clean).then((coords) => {
+          if (coords) {
+            const cObj = { ...coords, formatted: clean };
+            setHomePickupCoords(cObj);
+            if (setBookingPickupCoords) setBookingPickupCoords(cObj);
+          }
+        }).catch(() => {});
+        if (addToast) addToast(`Pickup set to ${label}: ${short}`, 'check');
+      } else {
+        homeDropFullRef.current = clean;
+        setHomeDrop(short);
+        setHomeActiveSuggestField(null);
+        setHomeDropSuggestions([]);
+        if (setBookingDestination) setBookingDestination(clean);
+        geocodeAddress(clean).then((coords) => {
+          if (coords) {
+            const cObj = { ...coords, formatted: clean };
+            setHomeDropCoords(cObj);
+            if (setBookingDropCoords) setBookingDropCoords(cObj);
+          }
+        }).catch(() => {});
+        if (addToast) addToast(`Destination set to ${label}: ${short}`, 'check');
+      }
+    } catch (err) {
+      console.error('[handleSelectHomeSavedPlace error]', err);
     }
   };
 
