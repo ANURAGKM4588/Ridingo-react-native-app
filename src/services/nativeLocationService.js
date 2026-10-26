@@ -35,6 +35,7 @@ export async function checkLocationPermissions() {
 
 /**
  * Request OS-level native location permission
+ * Displays ONLY the device default system permission dialog (Allow / Deny)
  * @returns {Promise<{ location: string, coarseLocation?: string }>}
  */
 export async function requestLocationPermissions() {
@@ -42,11 +43,70 @@ export async function requestLocationPermissions() {
     if (Capacitor.isNativePlatform()) {
       return await Geolocation.requestPermissions();
     }
-    return { location: 'granted', coarseLocation: 'granted' };
+    // Web / Desktop / Mobile Browser:
+    // Prompt the device's native browser permission popup (Allow / Block)
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          () => resolve({ location: 'granted', coarseLocation: 'granted' }),
+          (err) => {
+            const isDenied = err.code === 1; // 1 = PERMISSION_DENIED
+            resolve({
+              location: isDenied ? 'denied' : 'prompt',
+              coarseLocation: isDenied ? 'denied' : 'prompt'
+            });
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        );
+      });
+    }
+    return { location: 'prompt', coarseLocation: 'prompt' };
   } catch (err) {
     console.warn('[NativeLocation] Request permissions error:', err);
     return { location: 'denied', coarseLocation: 'denied' };
   }
+}
+
+/**
+ * Request all required device default system permissions (Location & Notifications)
+ * Triggers strictly the OS / device default system dialogs (Allow / Deny) with no in-app popups.
+ */
+export async function requestDevicePermissions() {
+  const results = {};
+
+  // 1. Device Location Permission (Native OS popup or Browser Allow/Block prompt)
+  try {
+    results.location = await requestLocationPermissions();
+  } catch (err) {
+    console.warn('[NativeLocation] Location request error:', err);
+  }
+
+  // 2. Device Notification Permission (Native OS popup or Browser prompt)
+  try {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        if (PushNotifications && typeof PushNotifications.requestPermissions === 'function') {
+          await PushNotifications.requestPermissions();
+        }
+      } catch (_) {}
+
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        if (LocalNotifications && typeof LocalNotifications.requestPermissions === 'function') {
+          await LocalNotifications.requestPermissions();
+        }
+      } catch (_) {}
+    } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        await Notification.requestPermission();
+      } catch (_) {}
+    }
+  } catch (notifErr) {
+    console.warn('[NativeLocation] Notification request error:', notifErr);
+  }
+
+  return results;
 }
 
 /**

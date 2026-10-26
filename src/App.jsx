@@ -17,7 +17,7 @@ import DriverApp from './components/DriverApp';
 import AdminPanel from './components/admin/AdminPanel';
 import Icon from './components/Icon';
 import NetworkStatusBanner from './components/NetworkStatusBanner';
-import { checkLocationPermissions, requestLocationPermissions } from './services/nativeLocationService';
+import { checkLocationPermissions, requestLocationPermissions, requestDevicePermissions } from './services/nativeLocationService';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -106,24 +106,49 @@ function MainApp() {
   };
 
   React.useEffect(() => {
-    // Proactively request initial permissions for Device Location & Notifications on initial app launch
-    // Strictly routed through Capacitor Geolocation (NEVER triggers WKWebView 'localhost' prompt)
-    checkLocationPermissions()
-      .then(status => {
+    // Proactively request device default permissions (Location & Notifications) on launch
+    // Strictly triggers the OS / device default popup (Allow / Deny) with NO in-app popups
+    requestDevicePermissions().catch(() => {});
+
+    // Every time the user returns to or resumes the app, ask for device permission if not granted
+    const handleAppResume = async () => {
+      try {
+        const status = await checkLocationPermissions();
         if (status?.location !== 'granted') {
-          requestLocationPermissions().catch(() => {});
+          await requestLocationPermissions();
         }
-      })
-      .catch(() => {});
+      } catch (_) {}
+    };
 
-    try {
-      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().then(p => {
-          console.info('[UserApp] Notification permission:', p);
-        });
+    window.addEventListener('focus', handleAppResume);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleAppResume();
       }
-    } catch (e) {}
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    let appListenerHandle = null;
+    try {
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appStateChange', (state) => {
+          if (state?.isActive) {
+            handleAppResume();
+          }
+        }).then(h => { appListenerHandle = h; }).catch(() => {});
+      }).catch(() => {});
+    } catch (_) {}
+
+    return () => {
+      window.removeEventListener('focus', handleAppResume);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (appListenerHandle && typeof appListenerHandle.remove === 'function') {
+        appListenerHandle.remove();
+      }
+    };
+  }, []);
+
+  React.useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
         const p = new URLSearchParams(window.location.search);
