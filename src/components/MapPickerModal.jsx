@@ -110,7 +110,7 @@ const MINIMALIST_BOX_DARK_STYLE = [
 ];
 
 export default function MapPickerModal({ isOpen, onClose, onSelect, targetField = 'pickup', initialCoords = null }) {
-  const { userThemeVal } = useApp() || {};
+  const { userThemeVal, addToast } = useApp() || {};
   const isDark = userThemeVal === 'dark';
 
   const label = targetField === 'pickup' ? 'Pickup Location' : 'Destination';
@@ -134,6 +134,7 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
 
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [gpsError, setGpsError] = useState(null);
 
   const containerRef = useRef(null);
@@ -313,26 +314,20 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
       }
     }, 60);
 
-    // Fast non-blocking live GPS refresh
-    getDeviceLocation(true)
-      .then((freshLoc) => {
-        if (isCancelled || !freshLoc || !freshLoc.lat) return;
-        if (!initialCoords?.lat) {
-          setCoordsInfo((prev) => ({
-            ...prev,
-            lat: freshLoc.lat,
-            lng: freshLoc.lng,
-            accuracy: freshLoc.accuracy
-          }));
-          if (freshLoc.address) {
-            setSelectedAddr(cleanPlusCode(freshLoc.address));
-          }
+    // Fast non-blocking real device GPS refresh on map open
+    getCurrentDevicePosition({ enableHighAccuracy: true, timeout: 6000, maximumAge: 5000 })
+      .then((pos) => {
+        if (isCancelled || !pos || !pos.coords) return;
+        const { latitude, longitude } = pos.coords;
+        if (!latitude || !longitude) return;
 
+        if (!initialCoords?.lat) {
           if (mapEngineRef.current === 'google' && googleMapRef.current) {
-            googleMapRef.current.panTo({ lat: freshLoc.lat, lng: freshLoc.lng });
+            googleMapRef.current.panTo({ lat: latitude, lng: longitude });
           } else if (leafletMapRef.current) {
-            leafletMapRef.current.panTo([freshLoc.lat, freshLoc.lng], { animate: false });
+            leafletMapRef.current.panTo([latitude, longitude], { animate: false });
           }
+          geocodeCenter(latitude, longitude);
         }
       })
       .catch(() => {});
@@ -362,25 +357,46 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
   }, [isDark]);
 
   // Recenter GPS Button
-  const handleDetectCurrentLocation = () => {
+  const handleDetectCurrentLocation = async () => {
+    if (isLocating) return;
+    setIsLocating(true);
     setGpsError(null);
 
-    getCurrentDevicePosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 })
-      .then((pos) => {
-        if (pos && pos.coords) {
-          const { latitude, longitude } = pos.coords;
+    try {
+      const pos = await getCurrentDevicePosition({ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+      if (pos && pos.coords) {
+        const { latitude, longitude } = pos.coords;
+        if (typeof latitude === 'number' && typeof longitude === 'number' && !isNaN(latitude) && !isNaN(longitude)) {
+          // Smoothly pan map to real device position
           if (mapEngineRef.current === 'google' && googleMapRef.current) {
             googleMapRef.current.panTo({ lat: latitude, lng: longitude });
             googleMapRef.current.setZoom(17);
           } else if (leafletMapRef.current) {
             leafletMapRef.current.setView([latitude, longitude], 17, { animate: true });
           }
+
+          // Trigger geocoding at the exact current position
           geocodeCenter(latitude, longitude);
+
+          if (addToast) {
+            addToast('Centered to current location', 'check');
+          }
+        } else {
+          throw new Error('Invalid GPS coordinates received from device');
         }
-      })
-      .catch((err) => {
-        console.warn('GPS query notice:', err);
-      });
+      } else {
+        throw new Error('Device location unavailable');
+      }
+    } catch (err) {
+      console.warn('GPS recenter error:', err);
+      const msg = err?.message || 'Could not detect device GPS. Please check location permissions.';
+      setGpsError(msg);
+      if (addToast) {
+        addToast(msg, 'alert');
+      }
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   // Zoom In
@@ -635,6 +651,7 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
           <button
             type="button"
             onClick={handleDetectCurrentLocation}
+            disabled={isLocating}
             title="Recenter on My Location"
             aria-label="Recenter on My Location"
             style={{
@@ -647,19 +664,27 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer',
+              cursor: isLocating ? 'wait' : 'pointer',
               color: isDark ? '#FFFFFF' : '#0F172A',
-              transition: 'all 0.15s ease'
+              transition: 'all 0.15s ease',
+              opacity: isLocating ? 0.75 : 1
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <circle cx="12" cy="12" r="7" />
-              <line x1="12" y1="1" x2="12" y2="5" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="1" y1="12" x2="5" y2="12" />
-              <line x1="19" y1="12" x2="23" y2="12" />
-              <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-            </svg>
+            {isLocating ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" style={{ animation: 'spin 0.8s linear infinite' }}>
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 0 1 10 10" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="12" cy="12" r="7" />
+                <line x1="12" y1="1" x2="12" y2="5" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="1" y1="12" x2="5" y2="12" />
+                <line x1="19" y1="12" x2="23" y2="12" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+              </svg>
+            )}
           </button>
 
           {/* Stacked Zoom Controls (+ / −) */}

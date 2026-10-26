@@ -58,12 +58,8 @@ export async function requestLocationPermissions() {
  * @returns {Promise<{ coords: { latitude: number, longitude: number, accuracy: number, heading: number|null, speed: number|null }, timestamp: number }>}
  */
 export async function getCurrentDevicePosition(options = {}) {
-  const defaultOpts = {
-    enableHighAccuracy: true,
-    timeout: 8000,
-    maximumAge: 10000,
-    ...options
-  };
+  const timeoutMs = options.timeout || 8000;
+  const maxAge = options.maximumAge !== undefined ? options.maximumAge : 10000;
 
   // 1. Native Capacitor Geolocation (iOS & Android)
   if (Capacitor.isNativePlatform()) {
@@ -72,23 +68,65 @@ export async function getCurrentDevicePosition(options = {}) {
       if (perm.location !== 'granted') {
         const req = await Geolocation.requestPermissions();
         if (req.location !== 'granted') {
-          throw new Error('Location permission not granted');
+          throw new Error('Location permission denied. Please allow location access in your device settings.');
         }
       }
-      return await Geolocation.getCurrentPosition(defaultOpts);
+      try {
+        return await Geolocation.getCurrentPosition({
+          enableHighAccuracy: options.enableHighAccuracy !== false,
+          timeout: timeoutMs,
+          maximumAge: maxAge
+        });
+      } catch (highErr) {
+        // Fallback to coarse accuracy on device if high-accuracy GPS lock timed out
+        return await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: timeoutMs + 2000,
+          maximumAge: maxAge
+        });
+      }
     } catch (nativeErr) {
       console.warn('[NativeLocation] Native getCurrentPosition error:', nativeErr);
       throw nativeErr;
     }
   }
 
-  // 2. Desktop Web Browser Fallback (NEVER called on Native iOS/Android)
+  // 2. Desktop Web Browser / Mobile Web Geolocation
   return new Promise((resolve, reject) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      reject(new Error('Geolocation unavailable'));
+      reject(new Error('Geolocation is not supported by your device/browser'));
       return;
     }
-    navigator.geolocation.getCurrentPosition(resolve, reject, defaultOpts);
+
+    // Try high accuracy first
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos),
+      (err1) => {
+        // If explicitly denied by user, don't retry - fail with clear error
+        if (err1 && err1.code === 1) {
+          reject(new Error('Location permission denied. Please enable location permissions in browser settings.'));
+          return;
+        }
+
+        // If timeout or unavailable, retry with low accuracy (Wi-Fi/cell triangulation)
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve(pos),
+          (err2) => {
+            reject(new Error(err2.message || 'Unable to retrieve real device location.'));
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: timeoutMs,
+            maximumAge: maxAge
+          }
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: Math.min(timeoutMs, 6000),
+        maximumAge: maxAge
+      }
+    );
   });
 }
 
