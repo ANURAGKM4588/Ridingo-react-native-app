@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import NativeIcon from './NativeIcon';
 import { LightTheme, DarkTheme, Typography, Radii, Shadows } from '../../styles/theme';
+import { getLocationUpToFirstComma } from '../../utils/locationCleaner';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -32,11 +33,21 @@ export default function NativeBookingSheet({
 }) {
   const theme = isDark ? DarkTheme : LightTheme;
 
+  const pickupFullRef = useRef('Current Location (GPS)');
+  const destFullRef = useRef(initialDestination || '');
+
   const [pickup, setPickup] = useState('Current Location (GPS)');
-  const [destination, setDestination] = useState(initialDestination || '');
+  const [destination, setDestination] = useState(initialDestination ? getLocationUpToFirstComma(initialDestination) : '');
   const [selectedVehicle, setSelectedVehicle] = useState('sedan');
   const [transmission, setTransmission] = useState('automatic');
   const [hours, setHours] = useState(4);
+
+  useEffect(() => {
+    if (initialDestination) {
+      destFullRef.current = initialDestination;
+      setDestination(getLocationUpToFirstComma(initialDestination));
+    }
+  }, [initialDestination]);
 
   // Compute estimated fare
   const vehicle = VEHICLE_TYPES.find(v => v.id === selectedVehicle) || VEHICLE_TYPES[1];
@@ -47,8 +58,8 @@ export default function NativeBookingSheet({
     if (onSubmitBooking) {
       onSubmitBooking({
         category,
-        pickup,
-        destination,
+        pickup: pickupFullRef.current || pickup,
+        destination: destFullRef.current || destination,
         vehicleType: selectedVehicle,
         transmission,
         hours,
@@ -102,7 +113,15 @@ export default function NativeBookingSheet({
                   <Text style={[styles.fieldLabel, { color: theme.muted }]}>PICKUP</Text>
                   <TextInput
                     value={pickup}
-                    onChangeText={setPickup}
+                    onChangeText={(val) => {
+                      pickupFullRef.current = val;
+                      setPickup(val);
+                    }}
+                    onBlur={() => {
+                      if (pickup && pickup.includes(',')) {
+                        setPickup(getLocationUpToFirstComma(pickup));
+                      }
+                    }}
                     style={[styles.input, { color: theme.ink }]}
                     placeholder="Enter pickup address"
                     placeholderTextColor={theme.muted}
@@ -119,7 +138,15 @@ export default function NativeBookingSheet({
                   <Text style={[styles.fieldLabel, { color: theme.muted }]}>DESTINATION</Text>
                   <TextInput
                     value={destination}
-                    onChangeText={setDestination}
+                    onChangeText={(val) => {
+                      destFullRef.current = val;
+                      setDestination(val);
+                    }}
+                    onBlur={() => {
+                      if (destination && destination.includes(',')) {
+                        setDestination(getLocationUpToFirstComma(destination));
+                      }
+                    }}
                     style={[styles.input, { color: theme.ink }]}
                     placeholder="Where are you going?"
                     placeholderTextColor={theme.muted}

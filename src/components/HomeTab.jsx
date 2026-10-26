@@ -201,8 +201,10 @@ export default function HomeTab() {
   const [destinationsModalOpen, setDestinationsModalOpen] = useState(false);
 
   // Home route box & schedule state (mirrors Booking page)
-  const [homePickup, setHomePickup] = useState(() => bookingPickup || '');
-  const [homeDrop, setHomeDrop] = useState(() => bookingDestination || '');
+  const homePickupFullRef = useRef(bookingPickup || '');
+  const homeDropFullRef = useRef(bookingDestination || '');
+  const [homePickup, setHomePickup] = useState(() => (bookingPickup ? getLocationUpToFirstComma(bookingPickup) : ''));
+  const [homeDrop, setHomeDrop] = useState(() => (bookingDestination ? getLocationUpToFirstComma(bookingDestination) : ''));
   const [homePickupCoords, setHomePickupCoords] = useState(() => bookingPickupCoords || null);
   const [homeDropCoords, setHomeDropCoords] = useState(() => bookingDropCoords || null);
   const [homePickupSuggestions, setHomePickupSuggestions] = useState([]);
@@ -266,10 +268,12 @@ export default function HomeTab() {
     if (updateSavedLocation) {
       updateSavedLocation(addLocationModalType, val);
     }
-    setHomeDrop(val);
+    homeDropFullRef.current = val;
+    setHomeDrop(getLocationUpToFirstComma(val));
+    if (setBookingDestination) setBookingDestination(val);
     if (addToast) {
       const typeLabel = addLocationModalType === 'home' ? 'Home' : addLocationModalType === 'work' ? 'Work' : 'Saved place';
-      addToast(`${typeLabel} address saved: ${val}`, 'check');
+      addToast(`${typeLabel} address saved: ${getLocationUpToFirstComma(val)}`, 'check');
     }
     setAddLocationModalType(null);
     setAddLocationInput('');
@@ -306,6 +310,7 @@ export default function HomeTab() {
 
   const handleHomePickupChange = (val) => {
     setHomePickup(val);
+    homePickupFullRef.current = val;
     setHomeActiveSuggestField('pickup');
 
     if (pickupSearchDebounceRef.current) clearTimeout(pickupSearchDebounceRef.current);
@@ -338,6 +343,7 @@ export default function HomeTab() {
 
   const handleHomeDropChange = (val) => {
     setHomeDrop(val);
+    homeDropFullRef.current = val;
     setHomeActiveSuggestField('drop');
 
     if (dropSearchDebounceRef.current) clearTimeout(dropSearchDebounceRef.current);
@@ -371,13 +377,15 @@ export default function HomeTab() {
   const handleSelectHomePickupPlace = async (item) => {
     if (!item) return;
     const fullText = item.full || (item.title + (item.sub ? ', ' + item.sub : ''));
-    setHomePickup(fullText);
+    homePickupFullRef.current = fullText;
+    const shortText = getLocationUpToFirstComma(fullText) || item.title;
+    setHomePickup(shortText);
     setHomeActiveSuggestField(null);
     setHomePickupSuggestions([]);
     if (setBookingPickup) setBookingPickup(fullText);
 
     if (item.lat && item.lng) {
-      const coords = { lat: Number(item.lat), lng: Number(item.lng) };
+      const coords = { lat: Number(item.lat), lng: Number(item.lng), formatted: fullText };
       setHomePickupCoords(coords);
       if (setBookingPickupCoords) setBookingPickupCoords(coords);
       return;
@@ -387,7 +395,7 @@ export default function HomeTab() {
       if (item.place_id) {
         const details = await fetchPlaceDetails(item.place_id);
         if (details && details.lat && details.lng) {
-          const coords = { lat: Number(details.lat), lng: Number(details.lng) };
+          const coords = { lat: Number(details.lat), lng: Number(details.lng), formatted: fullText, details };
           setHomePickupCoords(coords);
           if (setBookingPickupCoords) setBookingPickupCoords(coords);
           return;
@@ -395,7 +403,7 @@ export default function HomeTab() {
       }
       const geo = await geocodeAddress(fullText);
       if (geo && geo.lat && geo.lng) {
-        const coords = { lat: Number(geo.lat), lng: Number(geo.lng) };
+        const coords = { lat: Number(geo.lat), lng: Number(geo.lng), formatted: fullText };
         setHomePickupCoords(coords);
         if (setBookingPickupCoords) setBookingPickupCoords(coords);
       }
@@ -405,13 +413,15 @@ export default function HomeTab() {
   const handleSelectHomeDropPlace = async (item) => {
     if (!item) return;
     const fullText = item.full || (item.title + (item.sub ? ', ' + item.sub : ''));
-    setHomeDrop(fullText);
+    homeDropFullRef.current = fullText;
+    const shortText = getLocationUpToFirstComma(fullText) || item.title;
+    setHomeDrop(shortText);
     setHomeActiveSuggestField(null);
     setHomeDropSuggestions([]);
     if (setBookingDestination) setBookingDestination(fullText);
 
     if (item.lat && item.lng) {
-      const coords = { lat: Number(item.lat), lng: Number(item.lng) };
+      const coords = { lat: Number(item.lat), lng: Number(item.lng), formatted: fullText };
       setHomeDropCoords(coords);
       if (setBookingDropCoords) setBookingDropCoords(coords);
       return;
@@ -421,7 +431,7 @@ export default function HomeTab() {
       if (item.place_id) {
         const details = await fetchPlaceDetails(item.place_id);
         if (details && details.lat && details.lng) {
-          const coords = { lat: Number(details.lat), lng: Number(details.lng) };
+          const coords = { lat: Number(details.lat), lng: Number(details.lng), formatted: fullText, details };
           setHomeDropCoords(coords);
           if (setBookingDropCoords) setBookingDropCoords(coords);
           return;
@@ -429,7 +439,7 @@ export default function HomeTab() {
       }
       const geo = await geocodeAddress(fullText);
       if (geo && geo.lat && geo.lng) {
-        const coords = { lat: Number(geo.lat), lng: Number(geo.lng) };
+        const coords = { lat: Number(geo.lat), lng: Number(geo.lng), formatted: fullText };
         setHomeDropCoords(coords);
         if (setBookingDropCoords) setBookingDropCoords(coords);
       }
@@ -465,19 +475,24 @@ export default function HomeTab() {
             } catch (_) {}
           }
 
-          const finalName = resolved ? cleanLocationName(resolved) : `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+          const fullAddress = resolved ? cleanLocationName(resolved) : `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+          const shortAddress = getLocationUpToFirstComma(fullAddress);
+          coords.formatted = fullAddress;
+
           if (target === 'drop') {
+            homeDropFullRef.current = fullAddress;
             setHomeDropCoords(coords);
             if (setBookingDropCoords) setBookingDropCoords(coords);
-            setHomeDrop(finalName);
-            if (setBookingDestination) setBookingDestination(finalName);
-            if (addToast) addToast(`Destination set to current location: ${finalName.split(',')[0]}`, 'check');
+            setHomeDrop(shortAddress);
+            if (setBookingDestination) setBookingDestination(fullAddress);
+            if (addToast) addToast(`Destination set: ${shortAddress}`, 'check');
           } else {
+            homePickupFullRef.current = fullAddress;
             setHomePickupCoords(coords);
             if (setBookingPickupCoords) setBookingPickupCoords(coords);
-            setHomePickup(finalName);
-            if (setBookingPickup) setBookingPickup(finalName);
-            if (addToast) addToast(`Pickup set to current location: ${finalName.split(',')[0]}`, 'check');
+            setHomePickup(shortAddress);
+            if (setBookingPickup) setBookingPickup(fullAddress);
+            if (addToast) addToast(`Pickup set: ${shortAddress}`, 'check');
           }
         } else {
           if (addToast) addToast('Could not retrieve GPS coordinates. Please check location permissions.', 'alert');
@@ -510,15 +525,15 @@ export default function HomeTab() {
   };
 
   const isHomeBookingReady = Boolean(
-    homePickup?.trim() &&
-    homeDrop?.trim() &&
+    (homePickupFullRef.current?.trim() || homePickup?.trim()) &&
+    (homeDropFullRef.current?.trim() || homeDrop?.trim()) &&
     homeSelectedDate &&
     homeSelectedTime
   );
 
   const handleHomeBookDriver = () => {
-    const finalPickup = homePickup?.trim();
-    const finalDrop = homeDrop?.trim();
+    const finalPickup = homePickupFullRef.current?.trim() || homePickupCoords?.formatted || homePickup?.trim();
+    const finalDrop = homeDropFullRef.current?.trim() || homeDropCoords?.formatted || homeDrop?.trim();
     if (!finalPickup || !finalDrop) {
       if (!finalPickup) {
         setHomeShakingField('pickup');
@@ -530,7 +545,7 @@ export default function HomeTab() {
       return;
     }
 
-    // Pre-fill fields into shared booking state
+    // Pre-fill fields into shared booking state with complete full location data
     if (setBookingPickup) setBookingPickup(finalPickup);
     if (setBookingPickupCoords) setBookingPickupCoords(homePickupCoords);
     if (setBookingDestination) setBookingDestination(finalDrop);
@@ -1469,12 +1484,26 @@ Live GPS Tracking: ${trackUrl}`;
   };
 
   const handleMapPick = (addr, details) => {
+    const fullAddress = details?.formatted || details?.address || addr;
+    const shortAddress = getLocationUpToFirstComma(fullAddress);
+    const coordsObj = details && details.lat && details.lng ? {
+      lat: Number(details.lat),
+      lng: Number(details.lng),
+      formatted: fullAddress
+    } : null;
+
     if (homeMapTarget === 'pickup') {
-      setHomePickup(addr);
-      if (details) setHomePickupCoords({ lat: details.lat, lng: details.lng });
+      homePickupFullRef.current = fullAddress;
+      setHomePickup(shortAddress);
+      if (coordsObj) setHomePickupCoords(coordsObj);
+      if (setBookingPickup) setBookingPickup(fullAddress);
+      if (coordsObj && setBookingPickupCoords) setBookingPickupCoords(coordsObj);
     } else {
-      setHomeDrop(addr);
-      if (details) setHomeDropCoords({ lat: details.lat, lng: details.lng });
+      homeDropFullRef.current = fullAddress;
+      setHomeDrop(shortAddress);
+      if (coordsObj) setHomeDropCoords(coordsObj);
+      if (setBookingDestination) setBookingDestination(fullAddress);
+      if (coordsObj && setBookingDropCoords) setBookingDropCoords(coordsObj);
     }
     setMapModalOpen(false);
   };
@@ -2058,6 +2087,11 @@ Live GPS Tracking: ${trackUrl}`;
                   }
                 }}
                 onChange={e => handleHomePickupChange(e.target.value)}
+                onBlur={() => {
+                  if (homePickup && homePickup.includes(',')) {
+                    setHomePickup(getLocationUpToFirstComma(homePickup));
+                  }
+                }}
                 autoComplete="off"
               />
             </div>
@@ -2069,6 +2103,7 @@ Live GPS Tracking: ${trackUrl}`;
                 onClick={(e) => {
                   e.stopPropagation();
                   setHomePickup('');
+                  homePickupFullRef.current = '';
                   setHomePickupCoords(null);
                   if (setBookingPickup) setBookingPickup('');
                   if (setBookingPickupCoords) setBookingPickupCoords(null);
@@ -2241,6 +2276,11 @@ Live GPS Tracking: ${trackUrl}`;
                   }
                 }}
                 onChange={e => handleHomeDropChange(e.target.value)}
+                onBlur={() => {
+                  if (homeDrop && homeDrop.includes(',')) {
+                    setHomeDrop(getLocationUpToFirstComma(homeDrop));
+                  }
+                }}
                 autoComplete="off"
               />
             </div>
@@ -2252,6 +2292,7 @@ Live GPS Tracking: ${trackUrl}`;
                 onClick={(e) => {
                   e.stopPropagation();
                   setHomeDrop('');
+                  homeDropFullRef.current = '';
                   setHomeDropCoords(null);
                   if (setBookingDestination) setBookingDestination('');
                   if (setBookingDropCoords) setBookingDropCoords(null);

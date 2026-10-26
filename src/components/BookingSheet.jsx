@@ -5,6 +5,7 @@ import MapPickerModal from './MapPickerModal';
 import { getDeviceLocation, getCachedDeviceLocation } from '../lib/deviceLocation';
 import { searchPlaces } from '../lib/locationService';
 import { searchGooglePlaces, calculateTripRouteAndETA, fetchGoogleDistanceMatrix, geocodeAddress, fetchPlaceDetails, initGooglePlacesAutocomplete, formatDurationMeasurement, cleanPlusCode, fetchNearestLandmarkByCoordinates, getPlaceDetailsOnMarkerPlaced } from '../services/googleMapsService';
+import { getLocationUpToFirstComma } from '../utils/locationCleaner';
 import { openPhonePeCheckout } from '../utils/phonepe';
 import { POPULAR_DESTINATIONS } from '../data/popularDestinations';
 import darkMapImg from '../assets/dark_mode_city_map.png';
@@ -162,6 +163,8 @@ export default function BookingSheet() {
   const [qty, setQty] = useState(3);
   const [pickup, setPickup] = useState('');
   const [drop, setDrop] = useState('');
+  const pickupFullRef = useRef('');
+  const dropFullRef = useRef('');
   const [selectedDate, setSelectedDate] = useState(getTodayISO);
   const [selectedTime, setSelectedTime] = useState(getDefaultTime);
   const [trans, setTrans] = useState(null); // No default selection for gearbox
@@ -769,7 +772,8 @@ export default function BookingSheet() {
 
     const rawChosen = item.full || (item.title + (item.sub ? `, ${item.sub}` : ''));
     const chosen = cleanPlusCode(rawChosen);
-    setPickup(chosen);
+    pickupFullRef.current = chosen;
+    setPickup(getLocationUpToFirstComma(chosen) || item.title);
 
     if (item.place_id && !item.isMock) {
       try {
@@ -832,7 +836,8 @@ export default function BookingSheet() {
 
     const rawChosen = item.full || (item.title + (item.sub ? `, ${item.sub}` : ''));
     const chosen = cleanPlusCode(rawChosen);
-    setDrop(chosen);
+    dropFullRef.current = chosen;
+    setDrop(getLocationUpToFirstComma(chosen) || item.title);
 
     if (item.place_id && !item.isMock) {
       try {
@@ -890,6 +895,7 @@ export default function BookingSheet() {
 
   const handlePickupChange = (val) => {
     setPickup(val);
+    pickupFullRef.current = val;
     setPickupCoords(null); // Clear selection until picked from dropdown list
     setPickupDetails(null);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -917,6 +923,7 @@ export default function BookingSheet() {
 
   const handleDropChange = (val) => {
     setDrop(val);
+    dropFullRef.current = val;
     setDropCoords(null); // Clear selection until picked from dropdown list
     setDropDetails(null);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -1026,12 +1033,14 @@ export default function BookingSheet() {
 
       // Pre-fill or clean pickup location
       if (bookingPickup) {
-        setPickup(bookingPickup);
+        pickupFullRef.current = bookingPickup;
+        setPickup(getLocationUpToFirstComma(bookingPickup));
         if (bookingPickupCoords) {
           setPickupCoords(bookingPickupCoords);
           setPickupDetails(bookingPickupCoords);
         }
       } else {
+        pickupFullRef.current = '';
         setPickup('');
         setPickupCoords(null);
         setPickupDetails(null);
@@ -1039,12 +1048,17 @@ export default function BookingSheet() {
 
       // Pre-fill or clean destination location
       if (!bookingDestination) {
+        dropFullRef.current = '';
         setDrop('');
         setDropCoords(null);
         setDropDetails(null);
-      } else if (bookingDropCoords) {
-        setDropCoords(bookingDropCoords);
-        setDropDetails(bookingDropCoords);
+      } else {
+        dropFullRef.current = bookingDestination;
+        setDrop(getLocationUpToFirstComma(bookingDestination));
+        if (bookingDropCoords) {
+          setDropCoords(bookingDropCoords);
+          setDropDetails(bookingDropCoords);
+        }
       }
 
       // Pre-fill or reset date
@@ -1108,7 +1122,8 @@ export default function BookingSheet() {
     const cached = getCachedDeviceLocation();
     if (cached && cached.address) {
       const cleanAddr = cleanPlusCode(cached.address);
-      setPickup(cleanAddr);
+      pickupFullRef.current = cleanAddr;
+      setPickup(getLocationUpToFirstComma(cleanAddr));
       if (cached.lat && cached.lng) {
         const cObj = {
           lat: Number(cached.lat),
@@ -1121,7 +1136,7 @@ export default function BookingSheet() {
         setPickupCoords(cObj);
         setPickupDetails(cObj);
       }
-      const short = cleanAddr.split(',')[0].trim();
+      const short = getLocationUpToFirstComma(cleanAddr);
       addToast(`Pickup set to device location: ${short}`, 'check');
       setIsDetectingCurrent(false);
       return;
@@ -1131,7 +1146,8 @@ export default function BookingSheet() {
       const loc = await getDeviceLocation(false);
       if (loc && loc.address) {
         const cleanAddr = cleanPlusCode(loc.address);
-        setPickup(cleanAddr);
+        pickupFullRef.current = cleanAddr;
+        setPickup(getLocationUpToFirstComma(cleanAddr));
         if (loc.lat && loc.lng) {
           const cObj = {
             lat: Number(loc.lat),
@@ -1204,15 +1220,19 @@ export default function BookingSheet() {
   };
 
   const handleMapSelect = (addr, details) => {
+    const fullAddress = details?.formatted || details?.address || addr;
+    const shortAddress = getLocationUpToFirstComma(fullAddress);
+
     if (mapPickerTarget === 'pickup') {
-      setPickup(addr);
+      pickupFullRef.current = fullAddress;
+      setPickup(shortAddress);
       if (details && details.lat && details.lng) {
         const cObj = {
           lat: Number(details.lat),
           lng: Number(details.lng),
-          name: details.name || addr.split(',')[0].trim(),
-          formatted: details.address || addr,
-          city: details.city || addr.split(',')[0].trim(),
+          name: details.name || shortAddress,
+          formatted: fullAddress,
+          city: details.city || shortAddress,
           state: details.state || 'Kerala',
           placeId: details.placeId || null,
           isPoi: !!details.isPoi,
@@ -1221,13 +1241,13 @@ export default function BookingSheet() {
         setPickupCoords(cObj);
         setPickupDetails(cObj);
       } else {
-        geocodeAddress(addr).then(coords => {
+        geocodeAddress(fullAddress).then(coords => {
           if (coords) {
             const cObj = {
               ...coords,
-              name: addr.split(',')[0].trim(),
-              formatted: addr,
-              city: addr.split(',')[0].trim(),
+              name: shortAddress,
+              formatted: fullAddress,
+              city: shortAddress,
               state: 'Kerala'
             };
             setPickupCoords(cObj);
@@ -1235,30 +1255,31 @@ export default function BookingSheet() {
           }
         });
       }
-      const labelName = details?.name || addr.split(',')[0].trim();
+      const labelName = details?.name || shortAddress;
       addToast(`Pickup set: ${labelName}`, 'check');
     } else {
-      setDrop(addr);
+      dropFullRef.current = fullAddress;
+      setDrop(shortAddress);
       if (details && details.lat && details.lng) {
         const cObj = {
           lat: Number(details.lat),
           lng: Number(details.lng),
-          name: details.name || addr.split(',')[0].trim(),
-          formatted: details.address || addr,
-          city: details.city || addr.split(',')[0].trim(),
+          name: details.name || shortAddress,
+          formatted: fullAddress,
+          city: details.city || shortAddress,
           state: details.state || 'Kerala',
           placeId: details.placeId || null
         };
         setDropCoords(cObj);
         setDropDetails(cObj);
       } else {
-        geocodeAddress(addr).then(coords => {
+        geocodeAddress(fullAddress).then(coords => {
           if (coords) {
             const cObj = {
               ...coords,
-              name: addr.split(',')[0].trim(),
-              formatted: addr,
-              city: addr.split(',')[0].trim(),
+              name: shortAddress,
+              formatted: fullAddress,
+              city: shortAddress,
               state: 'Kerala'
             };
             setDropCoords(cObj);
@@ -1266,7 +1287,7 @@ export default function BookingSheet() {
           }
         });
       }
-      const labelName = details?.name || addr.split(',')[0].trim();
+      const labelName = details?.name || shortAddress;
       addToast(`Destination set: ${labelName}`, 'check');
     }
     setMapPickerOpen(false);
@@ -1430,26 +1451,29 @@ export default function BookingSheet() {
         return;
       }
 
+      const fullPickup = pickupFullRef.current?.trim() || pickupDetails?.formatted || pickupCoords?.formatted || cleanPickup;
+      const fullDrop = dropFullRef.current?.trim() || dropDetails?.formatted || dropCoords?.formatted || cleanDrop;
+
       let pCoords = pickupCoords;
       if (!pCoords) {
-        pCoords = await geocodeAddress(cleanPickup);
+        pCoords = await geocodeAddress(fullPickup);
         if (!pCoords) {
-          pCoords = { lat: 11.2588, lng: 75.7804, name: cleanPickup, formatted: cleanPickup, source: 'default' };
+          pCoords = { lat: 11.2588, lng: 75.7804, name: fullPickup, formatted: fullPickup, source: 'default' };
         }
         setPickupCoords(pCoords);
       }
 
       let dCoords = dropCoords;
       if (!dCoords) {
-        dCoords = await geocodeAddress(cleanDrop);
+        dCoords = await geocodeAddress(fullDrop);
         if (!dCoords) {
-          dCoords = { lat: 11.2600, lng: 75.7900, name: cleanDrop, formatted: cleanDrop, source: 'default' };
+          dCoords = { lat: 11.2600, lng: 75.7900, name: fullDrop, formatted: fullDrop, source: 'default' };
         }
         setDropCoords(dCoords);
       }
 
-      const pickupLoc = cleanPickup;
-      const dropLoc = cleanDrop;
+      const pickupLoc = fullPickup;
+      const dropLoc = fullDrop;
 
       // Trigger PhonePe payment options popup sheet (navigates to payment page)
       openPhonePeCheckout({
@@ -1884,6 +1908,11 @@ export default function BookingSheet() {
                           placeholder="Enter pickup location"
                           value={pickup}
                           onChange={(e) => handlePickupChange(e.target.value)}
+                          onBlur={() => {
+                            if (pickup && pickup.includes(',')) {
+                              setPickup(getLocationUpToFirstComma(pickup));
+                            }
+                          }}
                           onFocus={() => {
                             if (!isSheetExpanded) expandSheet();
                             setActiveSuggestField('pickup');
@@ -1899,6 +1928,7 @@ export default function BookingSheet() {
                             className="bk-route-end-icon-btn"
                             onClick={(e) => {
                               e.stopPropagation();
+                              pickupFullRef.current = '';
                               setPickup('');
                               setPickupCoords(null);
                               setPickupSuggestions([]);
@@ -1997,6 +2027,11 @@ export default function BookingSheet() {
                           placeholder="Enter destination location"
                           value={drop}
                           onChange={(e) => handleDropChange(e.target.value)}
+                          onBlur={() => {
+                            if (drop && drop.includes(',')) {
+                              setDrop(getLocationUpToFirstComma(drop));
+                            }
+                          }}
                           onFocus={() => {
                             if (!isSheetExpanded) expandSheet();
                             setActiveSuggestField('drop');
@@ -2012,6 +2047,7 @@ export default function BookingSheet() {
                             className="bk-route-end-icon-btn"
                             onClick={(e) => {
                               e.stopPropagation();
+                              dropFullRef.current = '';
                               setDrop('');
                               setDropCoords(null);
                               setDropSuggestions([]);
