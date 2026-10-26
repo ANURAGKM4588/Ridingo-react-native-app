@@ -828,12 +828,6 @@ export default function MapPickerModal({ isOpen, onClose, onSelect, targetField 
           >
             {selectedAddr}
           </div>
-
-          {gpsError && (
-            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>
-              {gpsError}
-            </div>
-          )}
         </div>
 
         {/* Action Button: Confirm Location */}
