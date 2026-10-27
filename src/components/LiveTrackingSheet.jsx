@@ -534,7 +534,7 @@ Please contact the passenger or emergency services (112) immediately!`;
                   }}
                 >
                   <span className="live-pulse-dot" style={{ background: '#16A34A' }} />
-                  DRIVER CONFIRMED
+                  DRIVER ALLOCATED
                 </span>
               ) : (
                 <span

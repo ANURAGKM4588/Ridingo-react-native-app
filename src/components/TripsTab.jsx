@@ -359,7 +359,7 @@ export default function TripsTab() {
       case 'accepted':
         return (
           <span className="pill good" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(34, 197, 94, 0.12)', color: '#16A34A', fontWeight: 750 }}>
-            Driver Assigned
+            Driver Allocated
           </span>
         );
       case 'pickup_arrived':

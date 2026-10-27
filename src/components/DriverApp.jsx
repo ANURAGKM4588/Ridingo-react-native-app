@@ -1950,10 +1950,57 @@ export default function DriverApp() {
       }
     };
 
+    // Instant Sub-Millisecond Trip Request Handler: pops up immediately on customer booking
+    const handleTripRequested = (trip) => {
+      if (!trip || trip.status !== 'requested') return;
+      try {
+        const declined = JSON.parse(localStorage.getItem('ridingo_declined_trips') || '[]');
+        if (declined.includes(trip.id)) return;
+      } catch (_) {}
+
+      // Add to trips state so it immediately appears in the driver dashboard/lists
+      setTrips(prev => {
+        const arr = Array.isArray(prev) ? prev : [];
+        const exists = arr.some(t => t.id === trip.id);
+        if (exists) {
+          return arr.map(t => (t.id === trip.id ? { ...t, ...trip } : t));
+        }
+        return [trip, ...arr];
+      });
+
+      // Show the slide-up popup instantly!
+      setIncomingTripRequest(trip);
+      setCustomPushTrip(trip);
+      setMinimizedRequestTripId(null);
+      setDismissedPopupTripIds(prev => {
+        const next = new Set(prev);
+        next.delete(trip.id);
+        return next;
+      });
+
+      // Play alert chime and vibration
+      playNativeAlertChime('alert');
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([150, 75, 150, 75, 300]);
+        }
+      } catch (_) {}
+
+      // Native push notification if enabled
+      if (driverPartner?.nativeNotifs !== false) {
+        notifyIncomingRideRequest(trip, {
+          onAccept: (tripId) => handleAccept(tripId),
+          onViewMore: (t) => setSelectedRequestDetails(t)
+        });
+      }
+    };
+
+    const unsubRequested = realtime.on('TRIP_REQUESTED', handleTripRequested);
     const unsubCancelled = realtime.on('TRIP_CANCELLED', handleTripCancelled);
     const unsubAccepted = realtime.on('TRIP_ACCEPTED', handleTripAccepted);
 
     return () => {
+      if (typeof unsubRequested === 'function') unsubRequested();
       if (typeof unsubCancelled === 'function') unsubCancelled();
       if (typeof unsubAccepted === 'function') unsubAccepted();
     };

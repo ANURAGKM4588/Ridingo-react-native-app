@@ -227,6 +227,10 @@ export function AppProvider({ children }) {
   };
 
   const [view, setView] = useState(determineView);
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
   const switchAppView = (targetView, extra = {}) => {
     // HARD LOCK: Standalone User App package NEVER switches away from 'user'!
@@ -650,11 +654,11 @@ export function AppProvider({ children }) {
     const stableNotificationId = 30000 + (numericPortion % 60000);
 
     sendUserNativeNotification(
-      `Driver Assigned: ${driverName}`,
+      `Driver Allocated: ${driverName}`,
       `${driverName} (${driverPhone}) is en route to your pickup. Your 4-digit Pickup OTP is ${targetOtp}.`,
       {
         id: stableNotificationId,
-        tag: `user_trip_assigned_${key}`,
+        tag: `user_trip_allocated_${key}`,
         extra: { tripId: key, driverName, driverPhone, otp: targetOtp }
       }
     );
@@ -823,7 +827,13 @@ export function AppProvider({ children }) {
         );
         const isCurrentDriverApp =
           window.RIDINGO_TARGET === 'driver' ||
-          (view === 'driver' && window.RIDINGO_TARGET !== 'user');
+          viewRef.current === 'driver' ||
+          (typeof window !== 'undefined' && (
+            window.location.search.includes('view=driver') ||
+            window.location.search.includes('app=driver') ||
+            window.location.hash.includes('driver') ||
+            window.location.pathname.includes('/driver')
+          ));
 
         if (activeReqs.length > 0 && isCurrentDriverApp) {
           setIncomingTripRequest(activeReqs[0]);
@@ -841,12 +851,21 @@ export function AppProvider({ children }) {
           // User app must never have incoming driver trip request modal or sounds
           setIncomingTripRequest(null);
         } else {
-          // If no active requests or previous request is no longer requested, clear it
+          // If previous request was explicitly handled, accepted, declined, settled, or expired, clear it
           setIncomingTripRequest(prev => {
-            if (prev && (!activeReqs.some(r => r.id === prev.id) || mapped.some(t => t.id === prev.id && t.status !== 'requested'))) {
-              dismissIncomingRideNotification(prev.id);
-              stopActiveTone();
-              return null;
+            if (prev) {
+              const matchingTripInMapped = mapped.find(t => t.id === prev.id);
+              const isHandled = matchingTripInMapped && matchingTripInMapped.status !== 'requested';
+              const isDeclined = declinedTripIds.includes(prev.id);
+              const isAccepted = acceptedTripIds.includes(prev.id) || acceptedTripIdsRef.current.has(prev.id);
+              const isSettled = settledTripIds.includes(prev.id) || settledTripIdsRef.current.has(prev.id);
+              const isExpired = prev.when_ts && (Date.now() - prev.when_ts > 15 * 60 * 1000);
+
+              if (isHandled || isDeclined || isAccepted || isSettled || isExpired) {
+                dismissIncomingRideNotification(prev.id);
+                stopActiveTone();
+                return null;
+              }
             }
             return prev;
           });
@@ -908,7 +927,13 @@ export function AppProvider({ children }) {
       });
       const isCurrentDriverApp =
         window.RIDINGO_TARGET === 'driver' ||
-        (view === 'driver' && window.RIDINGO_TARGET !== 'user');
+        viewRef.current === 'driver' ||
+        (typeof window !== 'undefined' && (
+          window.location.search.includes('view=driver') ||
+          window.location.search.includes('app=driver') ||
+          window.location.hash.includes('driver') ||
+          window.location.pathname.includes('/driver')
+        ));
 
       if (isCurrentDriverApp) {
         setIncomingTripRequest(newTrip);
@@ -1108,7 +1133,7 @@ export function AppProvider({ children }) {
           {
             id: 'notif-' + Date.now(),
             ts: Date.now(),
-            title: 'Driver Assigned',
+            title: 'Driver Allocated',
             body: `${driverName} is on the way to your pickup. Share Pickup OTP: ${targetOtp} upon arrival.`,
             icon: 'car',
             read: false,
@@ -1118,7 +1143,7 @@ export function AppProvider({ children }) {
           ...prev
         ];
       });
-      addToast(`Driver confirmed. ${driverName} accepted your ride.`, 'check');
+      addToast(`Driver allocated! ${driverName} accepted your ride.`, 'check');
 
       // 2. Native Device Default System Push Notification for User App (Strictly Once)
       if (typeof window !== 'undefined' && window.RIDINGO_TARGET !== 'driver') {
