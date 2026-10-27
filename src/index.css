@@ -6698,7 +6698,7 @@ body[data-theme="dark"] .onboarding-continue-btn {
 
 [data-theme="dark"] .booking-fullscreen-view,
 :root[data-theme="dark"] .booking-fullscreen-view {
-  background: #0B0E14 !important;
+  background: #000000 !important;
 }
 
 /* Fullscreen Graphic Map View */
@@ -8542,8 +8542,8 @@ body.app-offline-mode .action-btn {
 :root[data-theme="dark"] .booking-sheet .home-date-card-3col,
 :root[data-theme="dark"] .booking-fullscreen-view .home-date-card-3col,
 :root[data-theme="dark"] .bk-bottom-popup-sheet .home-date-card-3col {
-  background: #1E293B !important;
-  border-color: #334155 !important;
+  background: #141416 !important;
+  border-color: #27272A !important;
   color: #FFFFFF !important;
 }
 
@@ -8563,8 +8563,8 @@ body.app-offline-mode .action-btn {
 :root[data-theme="dark"] .booking-sheet .home-time-card-full,
 :root[data-theme="dark"] .booking-fullscreen-view .home-time-card-full,
 :root[data-theme="dark"] .bk-bottom-popup-sheet .home-time-card-full {
-  background: #1E293B !important;
-  border-color: #334155 !important;
+  background: #141416 !important;
+  border-color: #27272A !important;
   color: #FFFFFF !important;
 }
 
@@ -9036,7 +9036,7 @@ body.standalone-user .nav,
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
-  bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px)) !important;
+  bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) - 5px)) !important;
   transform: translateX(-50%) !important;
   width: calc(100% - 32px) !important;
   max-width: 440px !important;
@@ -9215,7 +9215,7 @@ body.standalone-app .nv.on .nv-i svg {
   body.standalone-app .nav,
   .nav {
     position: fixed !important;
-    bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
+    bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) - 2px)) !important;
     width: calc(100% - 32px) !important;
     max-width: 440px !important;
     height: 64px !important;
@@ -9347,7 +9347,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-map-canvas-layer::after {
-  background: linear-gradient(180deg, rgba(15,23,42,0.4) 0%, rgba(15,23,42,0.1) 40%, rgba(0,0,0,0.45) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.6) 100%);
 }
 
 /* Static Header Navigation Bar */
@@ -9392,8 +9392,8 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-map-top-bar.header-static-solid {
-  background: #0F172A !important;
-  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  background: #09090B !important;
+  border-bottom-color: #27272A !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
@@ -9423,10 +9423,10 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-map-round-btn {
-  background: #1E293B;
-  color: #F8FAFC;
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  background: #141416;
+  color: #FFFFFF;
+  border-color: #27272A;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .bk-map-top-titles {
@@ -9569,8 +9569,8 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-map-pin-callout {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.12);
+  background: #141416;
+  border-color: #27272A;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 
@@ -9750,15 +9750,15 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-bottom-popup-sheet {
-  background: #0F172A !important;
+  background: #09090B !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.7);
+  border-top: 1px solid #27272A;
 }
 
 :root[data-theme="dark"] .bk-bottom-popup-sheet.expanded {
-  background: #0F172A !important;
+  background: #09090B !important;
   border-top: none !important;
 }
 
@@ -9805,12 +9805,12 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-popup-handle-bar {
-  background: #334155;
+  background: #3F3F46;
 }
 
 :root[data-theme="dark"] .bk-popup-handle-bar-wrap:hover .bk-popup-handle-bar,
 :root[data-theme="dark"] .bk-popup-handle-bar:hover {
-  background: #475569;
+  background: #52525B;
 }
 
 
@@ -9857,8 +9857,8 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-telemetry-card {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.06);
+  background: #141416;
+  border-color: #27272A;
 }
 
 .bk-ref-telem-item {
@@ -9883,9 +9883,9 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-telem-icon {
-  background: #0F172A;
-  color: #F8FAFC;
-  border-color: rgba(255, 255, 255, 0.1);
+  background: #202024;
+  color: #F4F4F5;
+  border-color: #27272A;
 }
 
 .bk-ref-telem-meta {
@@ -9905,7 +9905,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-telem-label {
-  color: #94A3B8;
+  color: #A1A1AA;
 }
 
 .bk-ref-telem-val {
@@ -9920,7 +9920,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-telem-val {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 .bk-ref-telem-divider {
@@ -9931,7 +9931,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-telem-divider {
-  background: rgba(255, 255, 255, 0.1);
+  background: #27272A;
 }
 
 /* Section Title */
@@ -9947,7 +9947,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-section-title {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 /* Trip Type Pills */
@@ -9991,14 +9991,14 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-trip-pill {
-  background: #1E293B;
-  color: #CBD5E1;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: #18181B;
+  color: #D4D4D8;
+  border-color: #27272A;
 }
 
 :root[data-theme="dark"] .bk-ref-trip-pill.active {
   background: #FFFFFF;
-  color: #0F172A;
+  color: #000000;
   border-color: #FFFFFF;
 }
 
@@ -10032,8 +10032,8 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-duration-stepper {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: #141416;
+  border-color: #27272A;
 }
 
 .bk-ref-step-btn {
@@ -10057,14 +10057,14 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-step-btn {
-  background: #0F172A;
-  color: #F8FAFC;
-  border-color: rgba(255, 255, 255, 0.1);
+  background: #202024;
+  color: #F4F4F5;
+  border-color: #27272A;
 }
 
 :root[data-theme="dark"] .bk-ref-step-btn.plus {
   background: #FFFFFF;
-  color: #0F172A;
+  color: #000000;
   border-color: #FFFFFF;
 }
 
@@ -10084,7 +10084,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-step-val {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 .bk-ref-step-min {
@@ -10096,7 +10096,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-step-min {
-  color: #94A3B8;
+  color: #A1A1AA;
 }
 
 /* Flight / Air Ticket Input Tab for Airport rides (matches duration stepper dimensions) */
@@ -10120,13 +10120,13 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-flight-input-tab {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: #141416;
+  border-color: #27272A;
 }
 
 :root[data-theme="dark"] .bk-ref-flight-input-tab:focus-within {
   border-color: #FFFFFF;
-  background: #1E293B;
+  background: #18181B;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
@@ -10145,9 +10145,9 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-flight-icon-wrap {
-  background: #0F172A;
-  color: #F8FAFC;
-  border-color: rgba(255, 255, 255, 0.1);
+  background: #202024;
+  color: #F4F4F5;
+  border-color: #27272A;
 }
 
 .bk-ref-flight-input {
@@ -10172,7 +10172,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-flight-input {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 .bk-ref-flight-clear-btn {
@@ -10233,18 +10233,18 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-gearbox-card {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: #141416;
+  border-color: #27272A;
 }
 
 :root[data-theme="dark"] .bk-ref-gearbox-card:hover {
-  background: #273549;
+  background: #1F1F23;
 }
 
 :root[data-theme="dark"] .bk-ref-gearbox-card.active {
-  background: #1E293B !important;
+  background: #18181B !important;
   border: 2px solid #FFFFFF !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
 }
 
 .bk-gearbox-top-row {
@@ -10272,13 +10272,13 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-gearbox-icon-circle {
-  background: rgba(255, 255, 255, 0.08);
-  color: #F8FAFC;
+  background: #202024;
+  color: #F4F4F5;
 }
 
 :root[data-theme="dark"] .bk-ref-gearbox-card.active .bk-gearbox-icon-circle {
   background: #FFFFFF;
-  color: #0F172A;
+  color: #000000;
 }
 
 .bk-gearbox-radio {
@@ -10307,7 +10307,7 @@ body.standalone-app .nv.on .nv-i svg {
 :root[data-theme="dark"] .bk-ref-gearbox-card.active .bk-gearbox-radio {
   border-color: #FFFFFF;
   background: #FFFFFF;
-  color: #0F172A;
+  color: #000000;
 }
 
 .bk-gearbox-bottom-wrap {
@@ -10325,7 +10325,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-gearbox-title {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 .bk-gearbox-desc {
@@ -10337,7 +10337,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-gearbox-desc {
-  color: #94A3B8;
+  color: #A1A1AA;
 }
 
 /* Driver Trip Fare Row */
@@ -10361,7 +10361,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-fare-title {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 .bk-ref-fare-rate {
@@ -10372,7 +10372,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-fare-rate {
-  color: #94A3B8;
+  color: #A1A1AA;
 }
 
 .bk-ref-fare-right {
@@ -10389,7 +10389,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-fare-amount {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 /* Static Footer Action Bar (Locked in place at bottom) */
@@ -10410,7 +10410,7 @@ body.standalone-app .nv.on .nv-i svg {
 
 :root[data-theme="dark"] .bk-static-footer,
 :root[data-theme="dark"] .bk-ref-floating-bar-wrap {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.95) 28%, #0F172A 100%);
+  background: linear-gradient(180deg, rgba(9, 9, 11, 0) 0%, rgba(9, 9, 11, 0.95) 28%, #09090B 100%);
 }
 
 .bk-static-footer > *,
@@ -10441,9 +10441,9 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-ref-pay-capsule {
-  background: #020617;
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  background: #000000;
+  border-color: #27272A;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
 }
 
 .bk-ref-pay-single-line {
@@ -10546,13 +10546,13 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-date-month-pill {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #F8FAFC;
+  background: #141416;
+  border-color: #27272A;
+  color: #F4F4F5;
 }
 
 :root[data-theme="dark"] .bk-date-month-pill:hover {
-  background: #273549;
+  background: #1F1F23;
 }
 
 .bk-date-carousel-row {
@@ -10591,13 +10591,13 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-date-nav-btn {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #F8FAFC;
+  background: #141416;
+  border-color: #27272A;
+  color: #F4F4F5;
 }
 
 :root[data-theme="dark"] .bk-date-nav-btn:hover {
-  background: #273549;
+  background: #1F1F23;
 }
 
 .bk-date-strip {
@@ -10647,12 +10647,12 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-date-card {
-  background: #1E293B;
-  border-color: rgba(255, 255, 255, 0.08);
+  background: #141416;
+  border-color: #27272A;
 }
 
 :root[data-theme="dark"] .bk-date-card:hover {
-  background: #273549;
+  background: #1F1F23;
 }
 
 .bk-date-card-day {
@@ -10664,7 +10664,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-date-card-day {
-  color: #94A3B8;
+  color: #A1A1AA;
 }
 
 .bk-date-card-num {
@@ -10675,7 +10675,7 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-date-card-num {
-  color: #F8FAFC;
+  color: #F4F4F5;
 }
 
 /* Active / Selected Date Card - matching reference image */
@@ -10686,9 +10686,9 @@ body.standalone-app .nv.on .nv-i svg {
 }
 
 :root[data-theme="dark"] .bk-date-card.active {
-  background: #0F172A !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  background: #27272A !important;
+  border-color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
 }
 
 .bk-date-card.active .bk-date-card-day {
