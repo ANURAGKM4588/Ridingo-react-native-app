@@ -8818,6 +8818,24 @@ body.app-offline-mode .action-btn {
   max-width: 1240px;
   margin: 0 auto;
   box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.driver-history-list {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.trip-card-item {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.trip-card-row-head:active {
+  transform: scale(0.99);
 }
 
 /* 2. Responsive Desktop Header Command Bar (Visible on >= 768px) */

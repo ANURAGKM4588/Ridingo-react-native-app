@@ -4612,7 +4612,7 @@ export default function DriverApp() {
               }
 
               return (
-                <div className="trip-list driver-history-grid">
+                <div className="driver-history-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
                   {filtered.map((t, idx) => {
                     const c = CATS[t.cat] || CATS.hourly;
                     const isOpen = expandedHistoryTripId === t.id;
@@ -4642,54 +4642,114 @@ export default function DriverApp() {
                     return (
                       <div
                         key={t.id}
-                        className={`trip-row stagger-${Math.min(6, 3 + idx)}`}
+                        className={`trip-card-item stagger-${Math.min(6, 3 + idx)}`}
                         style={{
                           background: 'var(--card, #FFFFFF)',
                           borderRadius: '16px',
-                          border: '1px solid var(--line, #E2E8F0)',
-                          padding: '14px 16px',
-                          margin: '8px 0',
-                          boxShadow: isOpen ? '0 4px 18px rgba(0, 0, 0, 0.06)' : 'none',
-                          transition: 'box-shadow 0.25s ease'
+                          border: isOpen ? '1.5px solid var(--ink, #0B0B0C)' : '1px solid var(--line, #E2E8F0)',
+                          padding: '12px 14px',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          overflow: 'hidden',
+                          boxShadow: isOpen ? '0 4px 18px rgba(0, 0, 0, 0.08)' : '0 1px 4px rgba(0, 0, 0, 0.02)',
+                          transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
                         }}
                       >
                         {/* Clickable Header with Auto-Collapse */}
-                        <button
-                          type="button"
-                          className="trip-row-head"
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          className="trip-card-row-head"
                           onClick={() => setExpandedHistoryTripId(prev => (prev === t.id ? null : t.id))}
                           aria-expanded={isOpen}
-                          style={{ width: '100%', textAlign: 'left', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            boxSizing: 'border-box',
+                            minWidth: 0
+                          }}
                         >
-                          <span className="trip-row-ic">
-                            <Icon name={c.icon || 'hourly'} size={22} />
-                          </span>
-                          <div className="trip-row-main">
-                            <b className="trip-row-title ell" style={{ fontSize: '15px' }}>{destName}</b>
-                            <span className="trip-row-sub ell">
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '12px',
+                              background: 'var(--field, #F8FAFC)',
+                              color: 'var(--ink, #0B0B0C)',
+                              border: '1px solid var(--line, #E2E8F0)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            <Icon name={c.icon || 'hourly'} size={19} />
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <b
+                              style={{
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                color: 'var(--ink, #0B0B0C)',
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                lineHeight: 1.25
+                              }}
+                            >
+                              {destName}
+                            </b>
+                            <span
+                              style={{
+                                fontSize: '11.5px',
+                                color: 'var(--muted, #64748B)',
+                                marginTop: '1px',
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                lineHeight: 1.2
+                              }}
+                            >
                               {c.name} · {t.rider?.name || 'Customer'}
                             </span>
                           </div>
-                          <div className="trip-row-right">
-                            <span className="trip-row-amt">₹{t.fare}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span className={`pill ${t.status === 'completed' ? 'done' : 'good'}`}>
-                                {t.status === 'completed' ? 'Completed' : 'Active'}
-                              </span>
-                              <span
-                                style={{
-                                  transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                                  transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-                                  color: 'var(--muted)',
-                                  display: 'inline-flex',
-                                  alignItems: 'center'
-                                }}
-                              >
-                                <Icon name="chevronDown" size={15} />
-                              </span>
-                            </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <span
+                              style={{
+                                font: '700 14px var(--font-mono, monospace)',
+                                color: 'var(--ink, #0B0B0C)',
+                                letterSpacing: '-0.01em'
+                              }}
+                            >
+                              ₹{t.fare}
+                            </span>
+                            <span
+                              className={`pill ${t.status === 'completed' ? 'done' : 'good'}`}
+                              style={{ fontSize: '10.5px', padding: '2px 7px', fontWeight: 700 }}
+                            >
+                              {t.status === 'completed' ? 'Completed' : 'Active'}
+                            </span>
+                            <span
+                              style={{
+                                transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+                                color: 'var(--muted, #64748B)',
+                                display: 'inline-flex',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <Icon name="chevronDown" size={14} />
+                            </span>
                           </div>
-                        </button>
+                        </div>
 
                         {/* Expanded Full Details with Apple-Grade Smooth Grid Animation */}
                         <div
@@ -4708,9 +4768,9 @@ export default function DriverApp() {
                               transition: 'opacity 0.25s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)'
                             }}
                           >
-                            <div className="trip-row-body" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--line, #E2E8F0)' }}>
+                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--line, #E2E8F0)' }}>
                               {/* Passenger Profile Card */}
-                              <div style={{ marginBottom: '10px' }}>
+                              <div style={{ marginBottom: '8px' }}>
                                 <ContactProfileCard
                                   name={t.rider?.name || 'Customer'}
                                   role="Passenger / Car Owner"
@@ -4722,18 +4782,40 @@ export default function DriverApp() {
                               </div>
 
                               {/* Complete Route & Telemetry Details */}
-                              <div className="route" style={{ margin: '8px 0', padding: '10px 12px', background: 'var(--field, #F8FAFC)', borderRadius: '14px', border: '1px solid var(--line, #E2E8F0)' }}>
+                              <div
+                                style={{
+                                  margin: '8px 0',
+                                  padding: '10px 12px',
+                                  background: 'var(--field, #F8FAFC)',
+                                  borderRadius: '12px',
+                                  border: '1px solid var(--line, #E2E8F0)',
+                                  boxSizing: 'border-box'
+                                }}
+                              >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16A34A', flexShrink: 0 }} />
-                                  <span className="ell" style={{ fontSize: '12.5px', color: 'var(--ink, #0F172A)', fontWeight: 650 }}>{cleanLocationName(t.pickup)}</span>
+                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16A34A', flexShrink: 0 }} />
+                                  <span style={{ fontSize: '12px', color: 'var(--ink, #0F172A)', fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {cleanLocationName(t.pickup)}
+                                  </span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#DC2626', flexShrink: 0 }} />
-                                  <span className="ell" style={{ fontSize: '12.5px', color: 'var(--ink, #0F172A)', fontWeight: 650 }}>
+                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#DC2626', flexShrink: 0 }} />
+                                  <span style={{ fontSize: '12px', color: 'var(--ink, #0F172A)', fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {cleanLocationName(t.drop_loc) || 'City Route · Stays with you'}
                                   </span>
                                 </div>
-                                <div style={{ display: 'flex', gap: '16px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--line, #E2E8F0)', fontSize: '11.5px', color: 'var(--muted, #64748B)' }}>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '6px 12px',
+                                    marginTop: '8px',
+                                    paddingTop: '8px',
+                                    borderTop: '1px solid var(--line, #E2E8F0)',
+                                    fontSize: '11px',
+                                    color: 'var(--muted, #64748B)'
+                                  }}
+                                >
                                   <span>Distance: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.distanceText || '12.4 km'}</b></span>
                                   <span>Estimated: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.durationText || '28 mins'}</b></span>
                                   <span>Car: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.car?.model || 'Sedan'} ({t.trans || t.car?.trans || 'Automatic'})</b></span>
@@ -4741,15 +4823,29 @@ export default function DriverApp() {
                               </div>
 
                               {/* Pre-Trip Vehicle Condition Images Gallery (Driver's Real Taken Photos) */}
-                              <div style={{ margin: '10px 0' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-                                  <b style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted, #64748B)', whiteSpace: 'nowrap' }}>
+                              <div style={{ margin: '8px 0' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                  <b style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted, #64748B)' }}>
                                     Vehicle Inspection Photos
                                   </b>
+                                  {realPhotos.length > 0 && (
+                                    <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)' }}>
+                                      Tap to zoom
+                                    </span>
+                                  )}
                                 </div>
 
                                 {realPhotos.length > 0 ? (
-                                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(realPhotos.length, 4)}, 1fr)`, gap: '6px' }}>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      gap: '8px',
+                                      overflowX: 'auto',
+                                      paddingBottom: '2px',
+                                      scrollbarWidth: 'none',
+                                      msOverflowStyle: 'none'
+                                    }}
+                                  >
                                     {realPhotos.map((imgUrl, pIdx) => (
                                       <div
                                         key={pIdx}
@@ -4765,26 +4861,28 @@ export default function DriverApp() {
                                         }}
                                         style={{
                                           position: 'relative',
+                                          width: realPhotos.length === 1 ? '160px' : '90px',
+                                          height: realPhotos.length === 1 ? '110px' : '72px',
                                           borderRadius: '10px',
                                           overflow: 'hidden',
-                                          aspectRatio: '4/3',
                                           border: '1.5px solid var(--line, #E2E8F0)',
                                           background: '#000000',
                                           cursor: 'pointer',
+                                          flexShrink: 0,
                                           transition: 'transform 0.16s ease, border-color 0.16s ease'
                                         }}
                                         title="Tap to view full screen & zoom"
                                       >
                                         <img src={imgUrl} alt={`Vehicle Photo ${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        <span style={{ position: 'absolute', bottom: 0, insetInline: 0, padding: '2px', background: 'rgba(0,0,0,0.65)', color: '#FFFFFF', fontSize: '9.5px', textAlign: 'center', fontWeight: 700 }}>
+                                        <span style={{ position: 'absolute', bottom: 0, insetInline: 0, padding: '2px', background: 'rgba(0,0,0,0.65)', color: '#FFFFFF', fontSize: '9px', textAlign: 'center', fontWeight: 700 }}>
                                           Photo {pIdx + 1}
                                         </span>
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  <div style={{ padding: '10px 12px', borderRadius: '10px', background: 'var(--field, #F8FAFC)', border: '1px dashed var(--line, #CBD5E1)', fontSize: '11.5px', color: 'var(--muted, #64748B)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Icon name="camera" size={14} />
+                                  <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'var(--field, #F8FAFC)', border: '1px dashed var(--line, #CBD5E1)', fontSize: '11px', color: 'var(--muted, #64748B)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Icon name="camera" size={13} />
                                     <span>No pre-trip inspection photos recorded for this trip.</span>
                                   </div>
                                 )}
@@ -4797,23 +4895,32 @@ export default function DriverApp() {
                                 poster={realPhotos[0] || null}
                               />
 
-                              {/* Driver Earnings & Fare Breakdown */}
+                              {/* Driver Earnings & Fare Breakdown - Responsive 3-Column Box */}
                               <div
                                 style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  padding: '10px 12px',
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(3, 1fr)',
+                                  gap: '6px',
+                                  padding: '8px 10px',
                                   background: 'var(--field, #F8FAFC)',
                                   borderRadius: '12px',
-                                  fontSize: '12px',
-                                  color: 'var(--muted, #64748B)',
-                                  margin: '6px 0 4px'
+                                  border: '1px solid var(--line, #E2E8F0)',
+                                  textAlign: 'center',
+                                  margin: '6px 0 2px'
                                 }}
                               >
-                                <span>Total Fare: <b style={{ color: 'var(--ink, #0F172A)' }}>₹{fare}</b></span>
-                                <span>Commission: <b style={{ color: 'var(--muted, #64748B)' }}>₹{platformFee} (30%)</b></span>
-                                <span>Your Earning: <b style={{ color: '#16A34A', fontWeight: 850 }}>₹{driverEarn} (70%)</b></span>
+                                <div>
+                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block' }}>Total Fare</span>
+                                  <b style={{ fontSize: '12.5px', color: 'var(--ink, #0F172A)' }}>₹{fare}</b>
+                                </div>
+                                <div style={{ borderLeft: '1px solid var(--line, #E2E8F0)', borderRight: '1px solid var(--line, #E2E8F0)' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block' }}>Fee (30%)</span>
+                                  <b style={{ fontSize: '12.5px', color: 'var(--muted, #64748B)' }}>₹{platformFee}</b>
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block' }}>Earning (70%)</span>
+                                  <b style={{ fontSize: '12.5px', color: '#16A34A', fontWeight: 800 }}>₹{driverEarn}</b>
+                                </div>
                               </div>
                             </div>
                           </div>
