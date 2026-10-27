@@ -606,17 +606,7 @@ p {
 }
 
 .homebar {
-  position: absolute;
-  left: 50%;
-  bottom: 8px;
-  transform: translateX(-50%);
-  width: 128px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--ink);
-  opacity: .85;
-  z-index: 70;
-  pointer-events: none;
+  display: none !important;
 }
 
 /* =========================================================
@@ -946,29 +936,7 @@ body.standalone-app .content {
   box-sizing: border-box !important;
 }
 
-/* 6. Perfect Bottom Navigation Bar:
-          Flush against the bottom of the viewport with background filling safe area */
-body.standalone-app .nav {
-  position: fixed !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 100 !important;
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
-  align-items: center !important;
-  height: calc(54px + env(safe-area-inset-bottom, 0px)) !important;
-  min-height: calc(54px + env(safe-area-inset-bottom, 0px)) !important;
-  padding-top: 6px !important;
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  box-sizing: border-box !important;
-  background: #FFFFFF !important;
-  border-top: 1px solid var(--line, #E5E5EA) !important;
-  box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.06) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  backdrop-filter: blur(24px) !important;
-  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform 0.2s ease, opacity 0.2s ease;
-}
+/* 6. Modals, Sheets, and Full-Screen Popups must be above the navigation bar */
 
 /* All Modals, Sheets, and Full-Screen Popups must be above the navigation bar */
 body.standalone-app .layer,
@@ -1021,104 +989,11 @@ body.standalone-app:has(.driver-modal-overlay) .nav {
   transform: translateY(150%) !important;
 }
 
-/* System dark mode when not explicitly forced to light */
-@media (prefers-color-scheme: dark) {
-
-  :root:not([data-theme="light"]) body.standalone-app .nav,
-  html:not([data-theme="light"]) body.standalone-app .nav,
-  body.standalone-app:not([data-theme="light"]) .nav {
-    background: #121214 !important;
-    border-top-color: #2C2C2E !important;
-    box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.4) !important;
-  }
-}
-
-/* Explicit Dark Theme on html or body */
-:root[data-theme="dark"] body.standalone-app .nav,
-html[data-theme="dark"] body.standalone-app .nav,
-body.standalone-app[data-theme="dark"] .nav {
-  background: #121214 !important;
-  border-top-color: #2C2C2E !important;
-  box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* Explicit Light Theme on html or body */
-:root[data-theme="light"] body.standalone-app .nav,
-html[data-theme="light"] body.standalone-app .nav,
-body.standalone-app[data-theme="light"] .nav,
-body.standalone-driver[data-theme="light"] .nav {
-  background: #FFFFFF !important;
-  border-top-color: #E5E5EA !important;
-  box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.06) !important;
-}
-
 #col-u:has(.ob-screen) #u-nav,
 .ob-screen~#u-nav,
 body.standalone-app:has(.ob-screen) #u-nav,
 body.standalone-app .nav[style*="display: none"] {
   display: none !important;
-}
-
-body.standalone-app .nv {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 2px !important;
-  height: 44px !important;
-  background: transparent !important;
-  border: 0 !important;
-  padding: 0 !important;
-  color: var(--muted, #68686E) !important;
-  cursor: pointer !important;
-  text-decoration: none !important;
-  position: relative !important;
-}
-
-body.standalone-app .nv.on {
-  color: #0B0B0C !important;
-}
-
-body.standalone-app .nv .nv-i {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  height: 24px !important;
-}
-
-body.standalone-app .nv .nv-i svg {
-  width: 22px !important;
-  height: 22px !important;
-  color: inherit !important;
-}
-
-body.standalone-app .nv.on .nv-i svg {
-  color: #0B0B0C !important;
-}
-
-body.standalone-app .nv .nv-l {
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.01em !important;
-  color: inherit !important;
-}
-
-body.standalone-app .nv.on .nv-l {
-  color: #0B0B0C !important;
-}
-
-:root[data-theme="dark"] body.standalone-app .nv,
-body.standalone-app[data-theme="dark"] .nv {
-  color: rgba(255, 255, 255, 0.45) !important;
-}
-
-:root[data-theme="dark"] body.standalone-app .nv.on,
-body.standalone-app[data-theme="dark"] .nv.on,
-:root[data-theme="dark"] body.standalone-app .nv.on .nv-i svg,
-body.standalone-app[data-theme="dark"] .nv.on .nv-i svg,
-:root[data-theme="dark"] body.standalone-app .nv.on .nv-l,
-body.standalone-app[data-theme="dark"] .nv.on .nv-l {
-  color: #FFFFFF !important;
 }
 
 /* 7. Modal Sheets and Toasts */
@@ -1204,94 +1079,7 @@ body.standalone-app .map-picker-foot {
   display: none;
 }
 
-/* Classic Tab Bar */
-.nav {
-  position: fixed !important;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 100;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  height: auto;
-  padding: 9px 6px 26px;
-  border-radius: 0;
-  background: var(--card, #FFFFFF);
-  -webkit-backdrop-filter: saturate(200%) blur(28px);
-  backdrop-filter: saturate(200%) blur(28px);
-  box-shadow: 0 -.5px 0 var(--line-strong, #C7C7CC);
-  border-top: 1px solid var(--line, #E5E5EA);
-}
-
-[data-theme="dark"] .nav,
-:root[data-theme="dark"] .nav {
-  background: #121214 !important;
-  border-top-color: #2C2C2E !important;
-  box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.4) !important;
-}
-
-.nv {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--muted, #68686E);
-  text-align: center;
-  letter-spacing: .01em;
-  transition: color .25s, transform .2s;
-}
-
-.nv-i {
-  display: grid;
-  place-items: center;
-}
-
-.nv.on {
-  color: #0B0B0C !important;
-}
-
-.nv.on .nv-i svg {
-  color: #0B0B0C !important;
-}
-
-[data-theme="dark"] .nv.on,
-:root[data-theme="dark"] .nv.on,
-#col-u[data-theme="dark"] .nv.on,
-#col-d[data-theme="dark"] .nv.on,
-body.standalone-app[data-theme="dark"] .nv.on {
-  color: #FFFFFF !important;
-}
-
-[data-theme="dark"] .nv.on .nv-i svg,
-:root[data-theme="dark"] .nv.on .nv-i svg,
-#col-u[data-theme="dark"] .nv.on .nv-i svg,
-#col-d[data-theme="dark"] .nv.on .nv-i svg,
-body.standalone-app[data-theme="dark"] .nv.on .nv-i svg {
-  color: #FFFFFF !important;
-}
-
-.nv.on::before,
-body.standalone-app .nv.on::before {
-  content: "";
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  width: 36px;
-  height: 3px;
-  margin-left: -18px;
-  border-radius: 0 0 3px 3px;
-  background: var(--yellow, #FFC70A) !important;
-  box-shadow: 0 1px 6px rgba(255, 199, 10, 0.45);
-}
-
-.nv:active {
-  transform: scale(.92);
-}
+/* Tab navigation styling is handled by the floating capsule navbar section */
 
 /* overlays */
 .layer {
@@ -9235,36 +9023,46 @@ body.app-offline-mode .action-btn {
   }
 }
 
-/* 7. Bottom Navigation Bar: Static at Bottom with Equal 12px Left, Right & Bottom Spacing */
+/* 7. Liquid Glass Floating Capsule Bottom Navigation Bar (iOS Update Style - Driver & User App) */
 #d-nav,
 #u-nav,
+html.standalone-app .nav,
+html.standalone-driver .nav,
+html.standalone-user .nav,
 body.standalone-driver .nav,
 body.standalone-app .nav,
+body.standalone-user .nav,
 .nav {
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px) !important;
+  bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px)) !important;
   transform: translateX(-50%) !important;
-  width: calc(100% - 24px) !important;
-  max-width: 520px !important;
-  min-width: 320px !important;
-  height: 58px !important;
-  min-height: 58px !important;
-  padding: 4px 8px !important;
-  border-radius: 999px !important;
-  border: 1px solid var(--line, #E5E5EA) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
-  background: rgba(255, 255, 255, 0.94) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  backdrop-filter: blur(28px) saturate(180%) !important;
-  z-index: 100 !important;
+  width: calc(100% - 32px) !important;
+  max-width: 440px !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  max-height: 64px !important;
+  padding: 6px 8px !important;
+  border-radius: 9999px !important;
+  box-sizing: border-box !important;
+  z-index: 999 !important;
   display: grid !important;
   grid-template-columns: repeat(4, 1fr) !important;
   align-items: center !important;
-  gap: 6px !important;
-  box-sizing: border-box !important;
-  transition: opacity 0.18s ease, transform 0.18s ease !important;
+  gap: 4px !important;
+  /* iOS Liquid Glass Light Mode */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.78) 0%, rgba(245, 248, 255, 0.52) 45%, rgba(255, 255, 255, 0.70) 100%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(210%) contrast(106%) brightness(104%) !important;
+  backdrop-filter: blur(36px) saturate(210%) contrast(106%) brightness(104%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 
+    inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.05),
+    inset 0 0 20px 0 rgba(255, 255, 255, 0.45),
+    0 20px 48px -6px rgba(15, 23, 42, 0.16),
+    0 6px 16px -2px rgba(15, 23, 42, 0.08) !important;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
 }
 
 /* Hide Bottom Nav completely when Keyboard or Input is active to prevent floating on top of keyboard */
@@ -9286,7 +9084,7 @@ body:has(.location-suggest-dropdown) .nav {
   pointer-events: none !important;
 }
 
-/* Remove the old yellow top strip from mobile */
+/* Remove old top indicator strips */
 .nv.on::before,
 body.standalone-app .nv.on::before,
 body.standalone-driver .nv.on::before {
@@ -9294,81 +9092,140 @@ body.standalone-driver .nv.on::before {
   content: none !important;
 }
 
+/* iOS Liquid Glass Dark Mode */
 :root[data-theme="dark"] #d-nav,
 :root[data-theme="dark"] #u-nav,
+html[data-theme="dark"] .nav,
+body[data-theme="dark"] .nav,
 body.standalone-driver[data-theme="dark"] .nav,
 body.standalone-app[data-theme="dark"] .nav {
-  background: rgba(24, 24, 28, 0.92) !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(30, 32, 42, 0.65) 45%, rgba(14, 15, 22, 0.80) 100%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(220%) contrast(108%) brightness(106%) !important;
+  backdrop-filter: blur(36px) saturate(220%) contrast(108%) brightness(106%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 
+    inset 0 1.5px 1.5px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1.5px 2px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 18px 0 rgba(255, 255, 255, 0.06),
+    0 24px 56px -6px rgba(0, 0, 0, 0.65),
+    0 8px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
+/* Liquid Nav Item Button */
 .nv,
 body.standalone-driver .nv,
 body.standalone-app .nv {
-  border-radius: 999px !important;
-  height: 48px !important;
+  border-radius: 9999px !important;
+  height: 52px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 2px !important;
   background: transparent !important;
-  border: 0 !important;
-  padding: 4px 8px !important;
+  border: 1px solid transparent !important;
+  padding: 4px 6px !important;
   cursor: pointer !important;
   text-decoration: none !important;
-  color: var(--muted, #68686E) !important;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease !important;
+  color: #8E8E93 !important;
+  box-sizing: border-box !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .nv:hover,
 body.standalone-driver .nv:hover,
 body.standalone-app .nv:hover {
-  background: var(--field, rgba(0, 0, 0, 0.04)) !important;
+  background: rgba(255, 255, 255, 0.3) !important;
   transform: translateY(-1px);
 }
 
+:root[data-theme="dark"] .nv,
+:root[data-theme="dark"] body.standalone-driver .nv,
+:root[data-theme="dark"] body.standalone-app .nv {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+:root[data-theme="dark"] .nv:hover,
+:root[data-theme="dark"] body.standalone-driver .nv:hover,
+:root[data-theme="dark"] body.standalone-app .nv:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Active Nav Item - Liquid Glass Droplet Pill */
 .nv.on,
 body.standalone-driver .nv.on,
 body.standalone-app .nv.on {
-  background: var(--field, #F2F2F7) !important;
-  border-radius: 999px !important;
-  color: #0B0B0C !important;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.10) 0%, rgba(15, 23, 42, 0.04) 100%) !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
+  color: #0F172A !important;
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.9), 0 3px 10px rgba(0, 0, 0, 0.06) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.nv.on .nv-i svg,
+body.standalone-driver .nv.on .nv-i svg,
+body.standalone-app .nv.on .nv-i svg {
+  color: #0F172A !important;
 }
 
 :root[data-theme="dark"] .nv.on,
 :root[data-theme="dark"] body.standalone-driver .nv.on,
 :root[data-theme="dark"] body.standalone-app .nv.on {
-  background: rgba(255, 255, 255, 0.14) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%) !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.45), 0 3px 12px rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+:root[data-theme="dark"] .nv.on .nv-i svg,
+:root[data-theme="dark"] body.standalone-driver .nv.on .nv-i svg,
+:root[data-theme="dark"] body.standalone-app .nv.on .nv-i svg {
   color: #FFFFFF !important;
 }
 
+.nv-i {
+  display: grid !important;
+  place-items: center !important;
+}
+
+.nv-l {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.1 !important;
+}
+
+/* Content Bottom Padding so content never gets blocked by the floating navbar */
 #d-content,
 #u-content,
 .content {
-  padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 104px) !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 110px) !important;
 }
 
 @media (min-width: 768px) {
   #d-nav,
   #u-nav,
+  html.standalone-app .nav,
   body.standalone-driver .nav,
   body.standalone-app .nav,
   .nav {
     position: fixed !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 22px) !important;
-    width: calc(100% - 24px) !important;
-    min-width: 380px !important;
-    max-width: 520px !important;
-    padding: 6px 10px !important;
-    gap: 6px !important;
+    bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
+    width: calc(100% - 32px) !important;
+    max-width: 440px !important;
+    height: 64px !important;
+    min-height: 64px !important;
   }
 
   #d-content,
   #u-content,
   .content {
-    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 104px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 110px) !important;
   }
 }
 

@@ -192,6 +192,9 @@ function MainApp() {
   }, [uTab]);
 
   React.useEffect(() => {
+    if (document.body) {
+      document.body.classList.add('standalone-app');
+    }
     if (view === 'driver') {
       document.documentElement.classList.add('standalone-driver');
       document.documentElement.classList.remove('standalone-user');
