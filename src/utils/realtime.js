@@ -248,6 +248,8 @@ class RealtimeHub {
   _clearActiveTrip(tripId, newStatus = 'accepted') {
     if (typeof localStorage === 'undefined') return;
     try {
+      const matchId = (id) => String(id) === String(tripId);
+
       // 1. Clear or update active requests list
       let remainingActive = [];
       const rawReqs = localStorage.getItem(ACTIVE_TRIP_REQUESTS_KEY);
@@ -255,7 +257,7 @@ class RealtimeHub {
         try {
           const reqList = JSON.parse(rawReqs);
           if (Array.isArray(reqList)) {
-            remainingActive = tripId ? reqList.filter(r => r?.trip?.id !== tripId) : [];
+            remainingActive = tripId ? reqList.filter(r => !matchId(r?.trip?.id)) : [];
             localStorage.setItem(ACTIVE_TRIP_REQUESTS_KEY, JSON.stringify(remainingActive));
           }
         } catch (e) {}
@@ -265,7 +267,7 @@ class RealtimeHub {
       const raw = localStorage.getItem(ACTIVE_TRIP_KEY);
       if (raw) {
         const record = JSON.parse(raw);
-        if (!tripId || record?.trip?.id === tripId) {
+        if (!tripId || matchId(record?.trip?.id)) {
           // If other active requests remain, point to the latest one
           const nextLatest = remainingActive.find(r => r?.trip?.status === 'requested');
           if (nextLatest) {
@@ -283,7 +285,7 @@ class RealtimeHub {
           try {
             let list = JSON.parse(rawShared);
             if (Array.isArray(list)) {
-              list = list.map(t => (t.id === tripId ? { ...t, status: newStatus } : t));
+              list = list.map(t => (matchId(t.id) ? { ...t, status: newStatus } : t));
               localStorage.setItem(SHARED_TRIPS_KEY, JSON.stringify(list));
             }
           } catch (e) {}
@@ -379,10 +381,14 @@ class RealtimeHub {
     this.emit('TRIP_DECLINED', { tripId, timestamp: Date.now() });
   }
 
-  cancelRide(tripId) {
+  cancelRide(tripId, extra = {}) {
     this._clearActiveTrip(tripId, 'cancelled');
-    this.emit('TRIP_CANCELLED', { tripId, timestamp: Date.now() });
-    this.emit('RIDE_CANCELLED', { tripId, timestamp: Date.now() });
+    this.emit('TRIP_CANCELLED', { tripId, ...extra, timestamp: Date.now() });
+    this.emit('RIDE_CANCELLED', { tripId, ...extra, timestamp: Date.now() });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('RIDINGO_TRIP_CANCELLED', { detail: { tripId, ...extra } }));
+      window.dispatchEvent(new CustomEvent('RIDINGO_HIDE_CUSTOM_DRIVER_NOTIFICATION', { detail: { tripId } }));
+    }
   }
 
   arrivedAtPickup(tripId) {

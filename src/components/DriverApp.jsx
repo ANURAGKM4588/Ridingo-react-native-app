@@ -884,7 +884,7 @@ export default function DriverApp() {
   } = useApp();
 
   const [dFilter, setDFilter] = useState('all');
-  const [dismissDemoRequest, setDismissDemoRequest] = useState(false);
+  const [dismissDemoRequest, setDismissDemoRequest] = useState(true);
 
   // Active Trip Action & Lifecycle Modals
   const [activeTripAction, setActiveTripAction] = useState(null);
@@ -1153,11 +1153,20 @@ export default function DriverApp() {
     if (incomingTripRequest && incomingTripRequest.status === 'requested') {
       try {
         const declined = JSON.parse(localStorage.getItem('ridingo_declined_trips') || '[]');
-        if (declined.includes(incomingTripRequest.id)) {
+        if (declined.some(id => String(id) === String(incomingTripRequest.id))) {
           setCustomPushTrip(null);
           return;
         }
       } catch (_) {}
+
+      // If already marked cancelled in trips, clear immediately
+      const isCancelled = (trips || []).some(t => String(t.id) === String(incomingTripRequest.id) && t.status === 'cancelled');
+      if (isCancelled) {
+        setCustomPushTrip(null);
+        setIncomingTripRequest(null);
+        return;
+      }
+
       if (dismissedPopupTripIds.has(incomingTripRequest.id) || minimizedRequestTripId === incomingTripRequest.id) {
         setCustomPushTrip(null);
         return;
@@ -1166,7 +1175,7 @@ export default function DriverApp() {
     } else {
       setCustomPushTrip(null);
     }
-  }, [incomingTripRequest?.id, incomingTripRequest?.status, dismissedPopupTripIds, minimizedRequestTripId]);
+  }, [incomingTripRequest?.id, incomingTripRequest?.status, dismissedPopupTripIds, minimizedRequestTripId, trips]);
 
   // Listen to custom push notification dispatch from pushNotificationService, realtime, & storage
   useEffect(() => {
@@ -1175,16 +1184,30 @@ export default function DriverApp() {
       if (trip && trip.status === 'requested') {
         try {
           const declined = JSON.parse(localStorage.getItem('ridingo_declined_trips') || '[]');
-          if (declined.includes(trip.id)) return;
+          if (declined.some(id => String(id) === String(trip.id))) return;
         } catch (_) {}
         if (dismissedPopupTripIds.has(trip.id) || minimizedRequestTripId === trip.id) return;
         setIncomingTripRequest(trip);
         setCustomPushTrip(trip);
         setTrips(prev => {
           const arr = Array.isArray(prev) ? prev : [];
-          return arr.some(t => t.id === trip.id) ? arr.map(t => t.id === trip.id ? { ...t, ...trip } : t) : [trip, ...arr];
+          return arr.some(t => String(t.id) === String(trip.id)) ? arr.map(t => String(t.id) === String(trip.id) ? { ...t, ...trip } : t) : [trip, ...arr];
         });
       }
+    };
+
+    const handleCustomCancelEvent = (e) => {
+      const cancelledId = e.detail?.tripId || e.detail?.id;
+      if (!cancelledId) return;
+      const matchId = (id) => String(id) === String(cancelledId);
+      setIncomingTripRequest(prev => (prev && matchId(prev.id) ? null : prev));
+      setCustomPushTrip(prev => (prev && matchId(prev.id) ? null : prev));
+      setSelectedRequestDetails(prev => (prev && matchId(prev.id) ? null : prev));
+      setMinimizedRequestTripId(prev => (prev && matchId(prev) ? null : prev));
+      setActiveTripAction(prev => (prev && matchId(prev.id) ? null : prev));
+      setTrips(prev => (prev || []).filter(t => !matchId(t.id)));
+      stopActiveTone();
+      dismissIncomingRideNotification(cancelledId);
     };
 
     const handleStorageEvent = (e) => {
@@ -1193,6 +1216,8 @@ export default function DriverApp() {
           const data = JSON.parse(e.newValue);
           if (data?.type === 'TRIP_REQUESTED' && data.payload?.status === 'requested') {
             handleCustomPushEvent({ detail: { trip: data.payload } });
+          } else if (data?.type === 'TRIP_CANCELLED' || data?.type === 'RIDE_CANCELLED') {
+            handleCustomCancelEvent({ detail: data.payload });
           }
         } catch (_) {}
       }
@@ -1200,10 +1225,14 @@ export default function DriverApp() {
 
     window.addEventListener('RIDINGO_SHOW_CUSTOM_DRIVER_NOTIFICATION', handleCustomPushEvent);
     window.addEventListener('RIDINGO_TRIP_REQUESTED', handleCustomPushEvent);
+    window.addEventListener('RIDINGO_TRIP_CANCELLED', handleCustomCancelEvent);
+    window.addEventListener('RIDINGO_HIDE_CUSTOM_DRIVER_NOTIFICATION', handleCustomCancelEvent);
     window.addEventListener('storage', handleStorageEvent);
     return () => {
       window.removeEventListener('RIDINGO_SHOW_CUSTOM_DRIVER_NOTIFICATION', handleCustomPushEvent);
       window.removeEventListener('RIDINGO_TRIP_REQUESTED', handleCustomPushEvent);
+      window.removeEventListener('RIDINGO_TRIP_CANCELLED', handleCustomCancelEvent);
+      window.removeEventListener('RIDINGO_HIDE_CUSTOM_DRIVER_NOTIFICATION', handleCustomCancelEvent);
       window.removeEventListener('storage', handleStorageEvent);
     };
   }, [dismissedPopupTripIds, minimizedRequestTripId]);
@@ -1615,16 +1644,19 @@ export default function DriverApp() {
       const cancelledId = data?.tripId || data?.id;
       if (!cancelledId) return;
 
-      // 1. Immediately vanish incoming request popup
-      setIncomingTripRequest(prev => (prev?.id === cancelledId ? null : prev));
+      const matchId = (id) => String(id) === String(cancelledId);
+
+      // 1. Immediately vanish incoming request popup & custom push popup
+      setIncomingTripRequest(prev => (prev && matchId(prev.id) ? null : prev));
+      setCustomPushTrip(prev => (prev && matchId(prev.id) ? null : prev));
       // 2. Immediately vanish selected request details modal
-      setSelectedRequestDetails(prev => (prev?.id === cancelledId ? null : prev));
+      setSelectedRequestDetails(prev => (prev && matchId(prev.id) ? null : prev));
       // 3. Immediately vanish minimized banner
-      setMinimizedRequestTripId(prev => (prev === cancelledId ? null : prev));
+      setMinimizedRequestTripId(prev => (prev && matchId(prev) ? null : prev));
       // 4. Vanish active action if for this cancelled trip
-      setActiveTripAction(prev => (prev?.id === cancelledId ? null : prev));
-      // 5. Remove from trips list
-      setTrips(prev => prev.filter(t => t.id !== cancelledId));
+      setActiveTripAction(prev => (prev && matchId(prev.id) ? null : prev));
+      // 5. Remove from trips list so requestedTrips immediately clears
+      setTrips(prev => (prev || []).filter(t => !matchId(t.id)));
       stopActiveTone();
       dismissIncomingRideNotification(cancelledId);
       addToast('Trip request cancelled by customer', 'info');
@@ -1640,10 +1672,12 @@ export default function DriverApp() {
       const assignedDriverId = String(acceptedDriver?.deviceDriverId || acceptedDriver?.id || acceptedDriver?.phone || '');
 
       if (assignedDriverId && assignedDriverId !== myDriverId) {
-        setIncomingTripRequest(prev => (prev?.id === acceptedId ? null : prev));
-        setSelectedRequestDetails(prev => (prev?.id === acceptedId ? null : prev));
-        setMinimizedRequestTripId(prev => (prev === acceptedId ? null : prev));
-        setTrips(prev => prev.filter(t => t.id !== acceptedId));
+        const matchId = (id) => String(id) === String(acceptedId);
+        setIncomingTripRequest(prev => (prev && matchId(prev.id) ? null : prev));
+        setCustomPushTrip(prev => (prev && matchId(prev.id) ? null : prev));
+        setSelectedRequestDetails(prev => (prev && matchId(prev.id) ? null : prev));
+        setMinimizedRequestTripId(prev => (prev && matchId(prev) ? null : prev));
+        setTrips(prev => (prev || []).filter(t => !matchId(t.id)));
         stopActiveTone();
         dismissIncomingRideNotification(acceptedId);
         addToast(`Trip was accepted by another driver (${acceptedDriver?.name || 'Partner'})`, 'info');
@@ -1655,15 +1689,15 @@ export default function DriverApp() {
       if (!trip || trip.status !== 'requested') return;
       try {
         const declined = JSON.parse(localStorage.getItem('ridingo_declined_trips') || '[]');
-        if (declined.includes(trip.id)) return;
+        if (declined.some(id => String(id) === String(trip.id))) return;
       } catch (_) {}
 
       // Add to trips state so it immediately appears in the driver dashboard/lists
       setTrips(prev => {
         const arr = Array.isArray(prev) ? prev : [];
-        const exists = arr.some(t => t.id === trip.id);
+        const exists = arr.some(t => String(t.id) === String(trip.id));
         if (exists) {
-          return arr.map(t => (t.id === trip.id ? { ...t, ...trip } : t));
+          return arr.map(t => (String(t.id) === String(trip.id) ? { ...t, ...trip } : t));
         }
         return [trip, ...arr];
       });
@@ -1697,11 +1731,13 @@ export default function DriverApp() {
 
     const unsubRequested = realtime.on('TRIP_REQUESTED', handleTripRequested);
     const unsubCancelled = realtime.on('TRIP_CANCELLED', handleTripCancelled);
+    const unsubRideCancelled = realtime.on('RIDE_CANCELLED', handleTripCancelled);
     const unsubAccepted = realtime.on('TRIP_ACCEPTED', handleTripAccepted);
 
     return () => {
       if (typeof unsubRequested === 'function') unsubRequested();
       if (typeof unsubCancelled === 'function') unsubCancelled();
+      if (typeof unsubRideCancelled === 'function') unsubRideCancelled();
       if (typeof unsubAccepted === 'function') unsubAccepted();
     };
   }, [driverPartner?.id, driverPartner?.phone]);
@@ -1730,14 +1766,14 @@ export default function DriverApp() {
       } catch (_) {}
 
       const handledIds = new Set([
-        ...acceptedList,
-        ...declinedList,
-        ...settledList,
-        ...(trips || []).filter(t => t.status !== 'requested').map(t => t.id)
+        ...acceptedList.map(String),
+        ...declinedList.map(String),
+        ...settledList.map(String),
+        ...(trips || []).filter(t => t.status !== 'requested').map(t => String(t.id))
       ]);
 
       const unhandledActive = (activeRequests || []).filter(req =>
-        req && req.id && !handledIds.has(req.id) && !acceptedTripIdsRef.current.has(req.id)
+        req && req.id && !handledIds.has(String(req.id)) && !acceptedTripIdsRef.current.has(req.id) && req.status === 'requested'
       );
 
       if (unhandledActive.length > 0) {
@@ -1761,17 +1797,20 @@ export default function DriverApp() {
           }
         }
       } else {
-        if (incomingTripRequest && handledIds.has(incomingTripRequest.id)) {
+        if (incomingTripRequest && (handledIds.has(String(incomingTripRequest.id)) || (trips || []).some(t => String(t.id) === String(incomingTripRequest.id) && t.status === 'cancelled'))) {
           setIncomingTripRequest(null);
           dismissIncomingRideNotification(incomingTripRequest.id);
           stopActiveTone();
+        }
+        if (customPushTrip && (handledIds.has(String(customPushTrip.id)) || (trips || []).some(t => String(t.id) === String(customPushTrip.id) && t.status === 'cancelled'))) {
+          setCustomPushTrip(null);
         }
       }
     };
     syncActiveTrips();
     const interval = setInterval(syncActiveTrips, 2000);
     return () => clearInterval(interval);
-  }, [incomingTripRequest?.id, minimizedRequestTripId, dismissedPopupTripIds, syncTripsFromSupabase, trips]);
+  }, [incomingTripRequest?.id, customPushTrip?.id, minimizedRequestTripId, dismissedPopupTripIds, syncTripsFromSupabase, trips]);
 
   const hasBankAccount = Boolean(driverPartner?.bankAccount && driverPartner?.bankName);
 
@@ -2113,7 +2152,7 @@ export default function DriverApp() {
       if (t.status !== 'requested') return false;
       try {
         const declined = JSON.parse(localStorage.getItem('ridingo_declined_trips') || '[]');
-        if (declined.includes(t.id)) return false;
+        if (declined.some(id => String(id) === String(t.id))) return false;
       } catch (_) {}
       const cat = t.cat || 'hourly';
       // Exclude trip requests if driver explicitly toggled off this service

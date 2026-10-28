@@ -1270,15 +1270,17 @@ export function AppProvider({ children }) {
     // Local driver decline does not dismiss pop-up or tone on other drivers' devices
     // realtime.on('TRIP_DECLINED') intentionally omitted to allow other drivers to accept
 
-    const unbindCancel = realtime.on('TRIP_CANCELLED', ({ tripId }) => {
-      const isMatch = (id) => id === tripId || normalizeTripKey(id) === normalizeTripKey(tripId);
+    const handleTripCancelled = ({ tripId }) => {
+      const isMatch = (id) => String(id) === String(tripId) || normalizeTripKey(id) === normalizeTripKey(tripId);
       setIncomingTripRequest(prev => (prev && isMatch(prev.id) ? null : prev));
       setTrips(prev => prev.filter(t => !isMatch(t.id)));
       setActiveTrackingTripId(prev => (prev && isMatch(prev) ? null : prev));
       setLiveTrackingOpen(false);
       dismissIncomingRideNotification(tripId);
       stopActiveTone();
-    });
+    };
+    const unbindCancel = realtime.on('TRIP_CANCELLED', handleTripCancelled);
+    const unbindRideCancel = realtime.on('RIDE_CANCELLED', handleTripCancelled);
 
     const unbindComp = realtime.on('TRIP_COMPLETED', ({ tripId, ...details }) => {
       const isMatch = (id) => id === tripId || normalizeTripKey(id) === normalizeTripKey(tripId);
@@ -1404,6 +1406,7 @@ export function AppProvider({ children }) {
       unbindEndReq();
       unbindRideEnded();
       unbindCancel();
+      if (typeof unbindRideCancel === 'function') unbindRideCancel();
       unbindComp();
       unbindRideComp();
       unbindLoc();

@@ -110,7 +110,7 @@ export default function DriverCustomTripNotification({
     };
   }, [trip?.id]);
 
-  if (!trip) return null;
+  if (!trip || trip.status !== 'requested') return null;
 
   const fare = Number(trip.fare) || 750;
   const advance = Number(trip.advance) || Math.round(fare * 0.3);
