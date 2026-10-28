@@ -14,6 +14,7 @@ import {
 import NativeIcon from './NativeIcon';
 import { LightTheme, DarkTheme, Shadows } from '../../styles/theme';
 import { cleanLocationName, getLocationUpToFirstComma } from '../../utils/locationCleaner';
+import { isUserTrip } from '../../services/userService';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -136,6 +137,7 @@ const CURRENT_MONTH_KEY = getYearMonthKey(new Date());
 
 export default function NativeTripsTab({
   trips = [],
+  user = null,
   isDark = false,
   onOpenBooking,
   onOpenLiveTracking,
@@ -162,8 +164,11 @@ export default function NativeTripsTab({
     setSearchQuery('');
   };
 
-  // Base list of user trips (excluding inprogress)
-  const allUserTrips = (trips || []).filter(t => t.status !== 'inprogress');
+  // Base list of user trips (excluding inprogress) - strictly scoped to logged-in user
+  const allUserTrips = (trips || []).filter(t => {
+    if (user && isUserTrip && !isUserTrip(t, user)) return false;
+    return t.status !== 'inprogress';
+  });
 
   // Collect all months and available unique dates for date picker
   const allMonthsSet = new Set();

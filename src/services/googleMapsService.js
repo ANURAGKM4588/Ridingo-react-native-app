@@ -11,7 +11,7 @@
  */
 
 // API Key from environment (.env)
-export const GOOGLE_MAPS_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_MAPS_API_KEY) || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+export const GOOGLE_MAPS_API_KEY = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_MAPS_API_KEY) || '';
 
 // Mock Mode Configuration
 // Set to true by default if no API key is configured or VITE_USE_MOCK_MAPS === 'true'
@@ -43,7 +43,7 @@ export function setMockMode(enabled) {
   console.info(`[GoogleMaps] Mock mode set to: ${enabled}`);
 }
 
-import { cleanLocationName, cleanPlusCode, isLocationCode } from '../utils/locationCleaner';
+import { cleanLocationName, cleanPlusCode, isLocationCode } from '../utils/locationCleaner.js';
 export { cleanLocationName, cleanPlusCode, isLocationCode };
 
 // ============================================================================
@@ -692,7 +692,7 @@ export function loadGoogleMapsSdk(apiKey = GOOGLE_MAPS_API_KEY) {
       return;
     }
 
-    const effectiveKey = apiKey || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+    const effectiveKey = apiKey || GOOGLE_MAPS_API_KEY || '';
     const script = document.createElement('script');
     script.id = 'ridingo-google-maps-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(effectiveKey)}&libraries=places,geometry`;
@@ -1324,7 +1324,7 @@ export async function searchGooglePlaces(query, callbackOrOptions, options = {})
     // 3. Secondary: Live Google Places API (New) Autocomplete via REST (Country: India)
     async function tryRestPlacesApi() {
       if (currentSeq !== placesSearchSeq) return;
-      const apiKey = GOOGLE_MAPS_API_KEY || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+      const apiKey = GOOGLE_MAPS_API_KEY || '';
       if (apiKey && !apiKey.includes('YOUR_GOOGLE_MAPS_API_KEY')) {
         try {
           const payload = {
@@ -1819,7 +1819,7 @@ export async function geocodeAddress(addressText) {
   if (!clean) return null;
 
   // 1. Primary: Official Google Places API (New) Text Search (Exact genuine Google coordinates)
-  const apiKey = GOOGLE_MAPS_API_KEY || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+  const apiKey = GOOGLE_MAPS_API_KEY || '';
   if (apiKey && !apiKey.includes('YOUR_GOOGLE_MAPS_API_KEY')) {
     try {
       const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
@@ -1938,6 +1938,10 @@ export async function geocodeAddress(addressText) {
 }
 
 
+// In-memory cache for Distance Matrix computations (5-minute TTL to prevent expensive duplicate API billing)
+const distanceMatrixMemoryCache = new Map();
+const DISTANCE_MATRIX_CACHE_TTL_MS = 5 * 60 * 1000;
+
 /**
  * Official Google Maps Distance Matrix API Integration
  * Fetches real-time driving distance and duration between pickup and destination.
@@ -1950,7 +1954,7 @@ export async function geocodeAddress(addressText) {
  * @returns {Promise<{ distanceKm: number, distanceText: string, durationMins: number, durationText: string, etaText: string, source: string }>}
  */
 export async function fetchGoogleDistanceMatrix({ origin, destination, originCoords, destCoords }) {
-  const apiKey = GOOGLE_MAPS_API_KEY || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+  const apiKey = GOOGLE_MAPS_API_KEY || '';
 
   // 1. Resolve exact coordinates - strictly preserve provided numeric coordinates
   let oCoords = originCoords;
@@ -1974,6 +1978,15 @@ export async function fetchGoogleDistanceMatrix({ origin, destination, originCoo
   const oLng = oCoords?.lng || (originCoords?.lng ? Number(originCoords.lng) : null);
   const dLat = dCoords?.lat || (destCoords?.lat ? Number(destCoords.lat) : null);
   const dLng = dCoords?.lng || (destCoords?.lng ? Number(destCoords.lng) : null);
+
+  const dmKey = `${oLat ? Number(oLat).toFixed(4) : origin}->${dLat ? Number(dLat).toFixed(4) : destination}`;
+  const now = Date.now();
+  if (distanceMatrixMemoryCache.has(dmKey)) {
+    const entry = distanceMatrixMemoryCache.get(dmKey);
+    if (now - entry.timestamp < DISTANCE_MATRIX_CACHE_TTL_MS) {
+      return entry.data;
+    }
+  }
 
   // 2. Primary: Google Cloud Routes API v2 (Official modern Traffic-Aware Road Distance & ETA)
   if (oLat && oLng && dLat && dLng && apiKey && !apiKey.includes('YOUR_GOOGLE_MAPS_API_KEY')) {
@@ -2005,7 +2018,7 @@ export async function fetchGoogleDistanceMatrix({ origin, destination, originCoo
           const arrival = new Date(Date.now() + durSec * 1000);
           const etaText = arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-          return {
+          const matrixResult = {
             distanceKm: distKm,
             distanceText: `${distKm} km`,
             durationMins: durMins,
@@ -2015,6 +2028,8 @@ export async function fetchGoogleDistanceMatrix({ origin, destination, originCoo
             overview_polyline: route.polyline?.encodedPolyline ? { points: route.polyline.encodedPolyline } : null,
             routeDescription: route.description || ''
           };
+          distanceMatrixMemoryCache.set(dmKey, { timestamp: Date.now(), data: matrixResult });
+          return matrixResult;
         }
       }
     } catch (routeErr) {
@@ -2069,7 +2084,7 @@ export async function fetchGoogleDistanceMatrix({ origin, destination, originCoo
         const arrival = new Date(Date.now() + durSecs * 1000);
         const etaText = arrival.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        return {
+        const sdkResult = {
           distanceKm,
           distanceText,
           durationMins,
@@ -2077,6 +2092,8 @@ export async function fetchGoogleDistanceMatrix({ origin, destination, originCoo
           etaText,
           source: 'google_distance_matrix_api'
         };
+        distanceMatrixMemoryCache.set(dmKey, { timestamp: Date.now(), data: sdkResult });
+        return sdkResult;
       }
     } catch (dmErr) {
       console.warn('[GoogleMaps] DistanceMatrixService error:', dmErr);
@@ -2381,7 +2398,7 @@ export async function fetchGoogleRoadDirections({ origin, destination, originCoo
   dLng = dLng || 76.3120;
 
   // 2. Primary: Google Cloud Routes API v2 (official computeRoutes endpoint with live traffic)
-  const apiKey = GOOGLE_MAPS_API_KEY || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+  const apiKey = GOOGLE_MAPS_API_KEY || '';
   try {
     const routesRes = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
       method: 'POST',

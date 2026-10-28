@@ -245,7 +245,7 @@ export default function GooglePlacesSearchInput({
       }
 
       // 2. If a valid Google Places API Key is provided, query Google Places REST API
-      const key = apiKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_MAPS_API_KEY) || 'AIzaSyD8M53hyypWh8lLZk0W57dR7cUzLwb-nmA';
+      const key = apiKey || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_MAPS_API_KEY) || '';
       if (key && !key.includes('YOUR_GOOGLE_MAPS_API_KEY')) {
         try {
           const endpoint = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(

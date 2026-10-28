@@ -13,8 +13,8 @@
  *    the 1-trip-at-a-time restriction to individual user accounts.
  */
 
-import { supabase } from '../lib/supabase';
-import { formatIndianPhone } from './authOtpService';
+import { supabase } from '../lib/supabase.js';
+import { formatIndianPhone } from './authOtpService.js';
 
 const LOCAL_REGISTRY_KEY = 'ridingo_registered_users_registry';
 
@@ -32,7 +32,9 @@ export function normalizePhone10(raw) {
  */
 export function normalizeEmail(raw) {
   if (!raw) return '';
-  return String(raw).trim().toLowerCase();
+  const trimmed = String(raw).trim().toLowerCase();
+  // Strip any characters not allowed in valid emails to prevent PostgREST query injection
+  return trimmed.replace(/[^a-zA-Z0-9@._%+-]/g, '');
 }
 
 /**
@@ -134,11 +136,20 @@ export async function checkUserExists({ phone, email }) {
     }
   }
 
-  // 2. Query Supabase profiles table
-  try {
-    const { data, error } = await supabase.from('profiles').select('*');
-    if (!error && Array.isArray(data)) {
-      for (const row of data) {
+  // 2. Query Supabase profiles table targeting only the requested phone/email
+  if (supabase && typeof supabase.from === 'function') {
+    try {
+      let query = supabase.from('profiles').select('phone, email, name, preferences');
+      if (targetPhone10 && targetEmail) {
+        query = query.or(`phone.ilike.%${targetPhone10}%,email.eq.${targetEmail}`);
+      } else if (targetPhone10) {
+        query = query.ilike('phone', `%${targetPhone10}%`);
+      } else if (targetEmail) {
+        query = query.eq('email', targetEmail);
+      }
+      const { data, error } = await query.limit(1);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const row = data[0];
         const rowPhone10 = normalizePhone10(row.phone);
         const rowEmail = normalizeEmail(row.email);
 
@@ -163,9 +174,9 @@ export async function checkUserExists({ phone, email }) {
           };
         }
       }
+    } catch (err) {
+      console.warn('Supabase checkUserExists query notice:', err);
     }
-  } catch (err) {
-    console.warn('Supabase checkUserExists query notice:', err);
   }
 
   return {
@@ -376,6 +387,17 @@ export function isUserTrip(trip, user) {
   const tEmail = normalizeEmail(trip.rider?.email);
   if (uEmail && tEmail && uEmail === tEmail) {
     return true;
+  }
+
+  // 4. Match by creator identifier (by_who)
+  if (trip.by_who) {
+    const byWhoPhone10 = normalizePhone10(trip.by_who);
+    if (uPhone10 && byWhoPhone10 && uPhone10 === byWhoPhone10) {
+      return true;
+    }
+    if (uEmail && normalizeEmail(trip.by_who) === uEmail) {
+      return true;
+    }
   }
 
   return false;

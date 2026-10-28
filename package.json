@@ -12,7 +12,7 @@
     "dev": "vite --port 5173 --host",
     "build": "vite build",
     "build:apps": "node scripts/build-apps.js",
-    "lint": "oxlint"
+    "lint": "oxlint src"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

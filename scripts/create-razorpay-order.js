@@ -15,18 +15,15 @@
 
 const https = require('https');
 
-const KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_TkLGqvXMOFDbFY';
+const KEY_ID = process.env.RAZORPAY_KEY_ID;
 const KEY_SECRET = process.argv[4] || process.env.RAZORPAY_KEY_SECRET;
 const AMOUNT_RUPEES = parseFloat(process.argv[2] || '500');
 const CURRENCY = (process.argv[3] || 'INR').toUpperCase();
 
-if (!KEY_SECRET) {
-  console.error('\n❌ ERROR: Razorpay Key Secret is required to create an order.');
-  console.error('Razorpay Orders API requires Basic Auth: [Key ID] : [Key Secret]\n');
-  console.error('Please run the script with your Key Secret:');
-  console.error('  node scripts/create-razorpay-order.js 500 INR <YOUR_KEY_SECRET>');
-  console.error('\nOr export it as an environment variable:');
-  console.error('  $env:RAZORPAY_KEY_SECRET="your_key_secret"; node scripts/create-razorpay-order.js 500 INR\n');
+if (!KEY_ID || !KEY_SECRET) {
+  console.error('\n❌ ERROR: Razorpay Key ID and Key Secret are required.');
+  console.error('Please export them as environment variables:');
+  console.error('  $env:RAZORPAY_KEY_ID="rzp_..."; $env:RAZORPAY_KEY_SECRET="..."; node scripts/create-razorpay-order.js 500 INR\n');
   process.exit(1);
 }
 

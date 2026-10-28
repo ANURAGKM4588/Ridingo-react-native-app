@@ -7,7 +7,8 @@
  * direct service navigation (Hourly, Full Day, Airport, Outstation, Events).
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase, SUPABASE_URL, SUPABASE_KEY } from '../lib/supabase';
+import { isAdminAuthenticated } from './driverService';
 
 export const LOCAL_BANNERS_KEY = 'ridingo_offer_banners_v3';
 export const BANNERS_EVENT_KEY = 'ridingo_banners_updated';
@@ -136,6 +137,10 @@ export function getActiveOfferBanners() {
  * Save / Update a banner
  */
 export async function saveOfferBanner(bannerData) {
+  if (!isAdminAuthenticated()) {
+    throw new Error('Unauthorized: Administrative authentication required to create or modify offer banners.');
+  }
+
   const all = getAllBanners();
   const isNew = !bannerData.id;
   const id = bannerData.id || `banner_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -209,6 +214,10 @@ export async function saveOfferBanner(bannerData) {
  * Delete a banner
  */
 export async function deleteOfferBanner(id) {
+  if (!isAdminAuthenticated()) {
+    throw new Error('Unauthorized: Administrative authentication required to delete offer banners.');
+  }
+
   const all = getAllBanners();
   const updatedList = all.filter(b => b.id !== id);
 
@@ -238,6 +247,10 @@ export async function deleteOfferBanner(id) {
  * Toggle banner active state
  */
 export async function toggleBannerActive(id) {
+  if (!isAdminAuthenticated()) {
+    throw new Error('Unauthorized: Administrative authentication required to toggle banner status.');
+  }
+
   const all = getAllBanners();
   const updatedList = all.map(b => (b.id === id ? { ...b, active: !b.active } : b));
 
@@ -326,11 +339,13 @@ export function subscribeToOfferBanners(callback) {
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
 
+      if (!SUPABASE_URL || !SUPABASE_KEY) return;
+
       // Query by unique name identifier (safe against URL-encoding issues with phone + sign)
-      const res = await fetch('https://xxmcjgonsxpjrgdxchwl.supabase.co/rest/v1/profiles?name=eq.RIDINGO_OFFER_BANNERS&select=preferences', {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?name=eq.RIDINGO_OFFER_BANNERS&select=preferences`, {
         headers: {
-          'apikey': 'sb_publishable_xsxb_nMEozSSKCReR_DzkA_aXJIp--c',
-          'Authorization': 'Bearer sb_publishable_xsxb_nMEozSSKCReR_DzkA_aXJIp--c'
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
         },
         signal: controller ? controller.signal : undefined
       });

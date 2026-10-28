@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://xxmcjgonsxpjrgdxchwl.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_xsxb_nMEozSSKCReR_DzkA_aXJIp--c';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('\n❌ ERROR: Supabase environment variables missing.');
+  console.error('Please export VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before running diagnostics.\n');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false }

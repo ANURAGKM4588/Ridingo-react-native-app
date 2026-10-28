@@ -153,6 +153,11 @@ export function AppProvider({ children }) {
     }
   });
 
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   // Driver Partner state: null on fresh install or logged out
   const [driverPartner, setDriverPartner] = useState(() => {
     try {
@@ -162,6 +167,11 @@ export function AppProvider({ children }) {
       return null;
     }
   });
+
+  const driverPartnerRef = useRef(driverPartner);
+  useEffect(() => {
+    driverPartnerRef.current = driverPartner;
+  }, [driverPartner]);
 
   // App navigation state (User App, Driver App, or CRM Admin Panel)
   const determineView = () => {
@@ -817,15 +827,59 @@ export function AppProvider({ children }) {
     };
   };
 
-  // Sync trips from Supabase database table (bridges sandboxed iOS apps)
+  // Sync trips from Supabase database table with strict authorization scoping
   const syncTripsFromSupabase = async () => {
     try {
       if (!supabase || typeof supabase.from !== 'function') return;
-      const { data, error } = await supabase
-        .from('trips')
-        .select('*')
-        .order('when_ts', { ascending: false })
-        .limit(25);
+
+      const isCurrentDriverApp =
+        window.RIDINGO_TARGET === 'driver' ||
+        viewRef.current === 'driver' ||
+        (typeof window !== 'undefined' && (
+          window.location.search.includes('view=driver') ||
+          window.location.search.includes('app=driver') ||
+          window.location.hash.includes('driver') ||
+          window.location.pathname.includes('/driver')
+        ));
+
+      const isCurrentAdmin =
+        viewRef.current === 'admin' ||
+        (typeof window !== 'undefined' && (
+          sessionStorage.getItem('ridingo_admin_auth') === 'true' ||
+          localStorage.getItem('ridingo_admin_auth') === 'true'
+        ));
+
+      let query = supabase.from('trips').select('*').order('when_ts', { ascending: false }).limit(25);
+
+      if (isCurrentAdmin) {
+        // Authenticated admin can view platform trips for dispatch telemetry
+      } else if (isCurrentDriverApp) {
+        // Driver App: query open 'requested' trips for dispatches AND trips assigned to this driver
+        const rawDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
+        const myDriverId = String(rawDriverId || '').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        query = query.or(`status.eq.requested,status.eq.accepted,status.eq.pickup_arrived,status.eq.ready_to_start,status.eq.inprogress,driver_id.eq.${myDriverId},driver->>id.eq.${myDriverId}`);
+      } else {
+        // User App: STRICT SCOPING - Users must NOT access or view other users' private trip data!
+        const currentUser = userRef.current || user;
+        if (!currentUser) {
+          // Unauthenticated user: do not download any trips from cloud database
+          return;
+        }
+        const userPhone10 = currentUser.phone ? String(currentUser.phone).replace(/\D/g, '').slice(-10) : '';
+        const rawUserId = currentUser.id || currentUser.userId || '';
+        const userId = String(rawUserId).replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        if (userPhone10 && userId) {
+          query = query.or(`by_who.ilike.%${userPhone10}%,rider->>phone.ilike.%${userPhone10}%,rider->>id.eq.${userId},rider->>userId.eq.${userId}`);
+        } else if (userPhone10) {
+          query = query.or(`by_who.ilike.%${userPhone10}%,rider->>phone.ilike.%${userPhone10}%`);
+        } else if (userId) {
+          query = query.or(`rider->>id.eq.${userId},rider->>userId.eq.${userId}`);
+        } else {
+          return;
+        }
+      }
+
+      const { data, error } = await query;
 
       if (!error && Array.isArray(data) && data.length > 0) {
         const mapped = data.map(mapSupabaseRowToTrip).filter(Boolean);
@@ -1040,66 +1094,91 @@ export function AppProvider({ children }) {
                       }
                     }
                   } else if (tripObj.status === 'accepted') {
-                    const myDriverId = getDeviceDriverId(driverPartner || DEFAULT_DRIVER);
+                    const myDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
                     const isAcceptedByMe = tripObj.driver_id && String(tripObj.driver_id) === String(myDriverId);
-                    if (!isAcceptedByMe) {
+                    const currentUser = userRef.current;
+                    const isTripForMe = currentUser && isUserTrip(tripObj, currentUser);
+
+                    if (isAcceptedByMe) {
                       setIncomingTripRequest(prev => (prev?.id === tripObj.id ? null : prev));
                       dismissIncomingRideNotification(tripObj.id);
                       stopActiveTone();
-                      // User App: Immediately switch from waiting popup to live tracking sheet
+                    } else if (isTripForMe) {
+                      // User App: Strictly open tracking and notify ONLY if this trip belongs to the logged-in user
+                      setIncomingTripRequest(prev => (prev?.id === tripObj.id ? null : prev));
+                      dismissIncomingRideNotification(tripObj.id);
+                      stopActiveTone();
                       setActiveTrackingTripId(tripObj.id);
                       setLiveTrackingOpen(true);
                       if (window.RIDINGO_TARGET !== 'driver') {
-                        // User App: Trigger system push notification with driver details
                         const driverName = (typeof tripObj.driver === 'string' ? tripObj.driver : tripObj.driver?.name) || 'Ravi Kumar';
                         const driverPhone = tripObj.driverObj?.phone || '+91 94471 23456';
                         const otp = tripObj.startOtp || '4821';
                         notifyUserTripAccepted(tripObj.id, driverName, driverPhone, otp);
                       }
                     } else {
-                      setIncomingTripRequest(prev => (prev?.id === tripObj.id ? null : prev));
+                      // Trip is for another user, do not trigger UI popups or alerts
                       dismissIncomingRideNotification(tripObj.id);
-                      stopActiveTone();
                     }
                   } else if (tripObj.status === 'completed') {
-                    setIncomingTripRequest(prev => (prev?.id === tripObj.id ? null : prev));
-                    dismissIncomingRideNotification(tripObj.id);
-                    stopActiveTone();
-                    // Retain completed trips so History tab displays Completed!
-                    setTrips(prev => prev.map(t => (t.id === tripObj.id ? { ...t, ...tripObj, status: 'completed' } : t)));
-                    
-                    const dName = (typeof tripObj.driver === 'string' ? tripObj.driver : tripObj.driver?.name) || tripObj.driverObj?.name || 'Driver';
-                    addNotification(
-                      'Trip Completed! How was your ride?',
-                      `Your trip with ${dName} is complete. Tap to rate your driver and share your experience.`,
-                      'star',
-                      {
-                        category: 'trip_rating',
-                        tripId: tripObj.id,
-                        trip: tripObj,
-                        driverName: dName,
-                        canRate: true
-                      }
-                    );
+                    const myDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
+                    const isMyTripAsDriver = tripObj.driver_id && String(tripObj.driver_id) === String(myDriverId);
+                    const currentUser = userRef.current;
+                    const isTripForMe = currentUser && isUserTrip(tripObj, currentUser);
 
-                    // Transition to TripCompleteModal on User App
-                    setCompletedTripData(tripObj);
-                    setTripCompleteModalOpen(true);
-                    setLiveTrackingOpen(false);
-                    setActiveTrackingTripId(null);
-                  } else if (tripObj.status === 'invoice_pending' || tripObj.status === 'ending_otp') {
-                    setTrips(prev => prev.map(t => (t.id === tripObj.id ? { ...t, ...tripObj } : t)));
-                    setCompletedTripData(tripObj);
-                    setTripCompleteModalOpen(true);
-                    setLiveTrackingOpen(false);
-                    setActiveTrackingTripId(null);
-                  } else if (tripObj.status === 'cancelled') {
                     setIncomingTripRequest(prev => (prev?.id === tripObj.id ? null : prev));
                     dismissIncomingRideNotification(tripObj.id);
                     stopActiveTone();
-                    setTrips(prev => prev.map(t => (t.id === tripObj.id ? { ...t, status: 'cancelled' } : t)));
-                    setLiveTrackingOpen(false);
-                    setActiveTrackingTripId(null);
+
+                    if (isTripForMe) {
+                      setTrips(prev => prev.map(t => (t.id === tripObj.id ? { ...t, ...tripObj, status: 'completed' } : t)));
+                      const dName = (typeof tripObj.driver === 'string' ? tripObj.driver : tripObj.driver?.name) || tripObj.driverObj?.name || 'Driver';
+                      addNotification(
+                        'Trip Completed! How was your ride?',
+                        `Your trip with ${dName} is complete. Tap to rate your driver and share your experience.`,
+                        'star',
+                        {
+                          category: 'trip_rating',
+                          tripId: tripObj.id,
+                          trip: tripObj,
+                          driverName: dName,
+                          canRate: true
+                        }
+                      );
+                      setCompletedTripData(tripObj);
+                      setTripCompleteModalOpen(true);
+                      setLiveTrackingOpen(false);
+                      setActiveTrackingTripId(null);
+                    } else if (isMyTripAsDriver) {
+                      setTrips(prev => prev.map(t => (t.id === tripObj.id ? { ...t, ...tripObj, status: 'completed' } : t)));
+                    }
+                  } else if (tripObj.status === 'invoice_pending' || tripObj.status === 'ending_otp') {
+                    const currentUser = userRef.current;
+                    const isTripForMe = currentUser && isUserTrip(tripObj, currentUser);
+                    if (isTripForMe) {
+                      setTrips(prev => prev.map(t => (t.id === tripObj.id ? { ...t, ...tripObj } : t)));
+                      setCompletedTripData(tripObj);
+                      setTripCompleteModalOpen(true);
+                      setLiveTrackingOpen(false);
+                      setActiveTrackingTripId(null);
+                    }
+                  } else if (tripObj.status === 'cancelled') {
+                    const myDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
+                    const isMyTripAsDriver = tripObj.driver_id && String(tripObj.driver_id) === String(myDriverId);
+                    const currentUser = userRef.current;
+                    const isTripForMe = currentUser && isUserTrip(tripObj, currentUser);
+
+                    setIncomingTripRequest(prev => (prev?.id === tripObj.id ? null : prev));
+                    dismissIncomingRideNotification(tripObj.id);
+                    stopActiveTone();
+
+                    if (isTripForMe || isMyTripAsDriver) {
+                      setTrips(prev => prev.map(t => (t.id === tripObj.id ? { ...t, status: 'cancelled' } : t)));
+                      if (activeTrackingTripId === tripObj.id) {
+                        setLiveTrackingOpen(false);
+                        setActiveTrackingTripId(null);
+                      }
+                    }
                   }
                 }
               }
@@ -1139,6 +1218,8 @@ export function AppProvider({ children }) {
       // Determine the exact booking OTP (never fall back to a random default)
       const foundTrip = trips.find(t => isMatch(t.id));
       const targetOtp = startOtp || otp || foundTrip?.startOtp || foundTrip?.car?.startOtp || foundTrip?.otp || '4821';
+      const currentUser = userRef.current;
+      const isTripForUser = currentUser && foundTrip && isUserTrip(foundTrip, currentUser);
 
       setTrips(prev =>
         prev.map(t => {
@@ -1160,39 +1241,46 @@ export function AppProvider({ children }) {
       dismissIncomingRideNotification(tripId);
       stopActiveTone();
 
-      // 1. In-App Notification (Deduplicated so user notification tray only has 1 entry)
-      const noteTag = `trip-acc-${tripId}`;
-      setUnotes(prev => {
-        if (prev.some(n => n.tag === noteTag || (n.extra?.tripId && normalizeTripKey(n.extra.tripId) === normalizeTripKey(tripId)))) {
-          return prev;
-        }
-        return [
-          {
-            id: 'notif-' + Date.now(),
-            ts: Date.now(),
-            title: 'Driver Allocated',
-            body: `${driverName} is on the way to your pickup. Share Pickup OTP: ${targetOtp} upon arrival.`,
-            icon: 'car',
-            read: false,
-            tag: noteTag,
-            extra: { tripId, driverName, otp: targetOtp }
-          },
-          ...prev
-        ];
-      });
-      addToast(`Driver allocated! ${driverName} accepted your ride.`, 'check');
+      // Only notify and transition to live tracking if this trip belongs to the logged-in customer
+      if (isTripForUser) {
+        // 1. In-App Notification (Deduplicated so user notification tray only has 1 entry)
+        const noteTag = `trip-acc-${tripId}`;
+        setUnotes(prev => {
+          if (prev.some(n => n.tag === noteTag || (n.extra?.tripId && normalizeTripKey(n.extra.tripId) === normalizeTripKey(tripId)))) {
+            return prev;
+          }
+          return [
+            {
+              id: 'notif-' + Date.now(),
+              ts: Date.now(),
+              title: 'Driver Allocated',
+              body: `${driverName} is on the way to your pickup. Share Pickup OTP: ${targetOtp} upon arrival.`,
+              icon: 'car',
+              read: false,
+              tag: noteTag,
+              extra: { tripId, driverName, otp: targetOtp }
+            },
+            ...prev
+          ];
+        });
+        addToast(`Driver allocated! ${driverName} accepted your ride.`, 'check');
 
-      // 2. Native Device Default System Push Notification for User App (Strictly Once)
-      if (typeof window !== 'undefined' && window.RIDINGO_TARGET !== 'driver') {
-        setActiveTrackingTripId(tripId);
-        setLiveTrackingOpen(true);
-        notifyUserTripAccepted(tripId, driverName, driverPhone, targetOtp);
+        // 2. Native Device Default System Push Notification for User App (Strictly Once)
+        if (typeof window !== 'undefined' && window.RIDINGO_TARGET !== 'driver') {
+          setActiveTrackingTripId(tripId);
+          setLiveTrackingOpen(true);
+          notifyUserTripAccepted(tripId, driverName, driverPhone, targetOtp);
+        }
       }
     });
 
     const unbindArr = realtime.on('ARRIVED_PICKUP', ({ tripId }) => {
       const isMatch = (id) => id === tripId || normalizeTripKey(id) === normalizeTripKey(tripId);
       let targetOtp = '4821';
+      const foundTrip = trips.find(t => isMatch(t.id));
+      const currentUser = userRef.current;
+      const isTripForUser = currentUser && foundTrip && isUserTrip(foundTrip, currentUser);
+
       setTrips(prev =>
         prev.map(t => {
           if (isMatch(t.id)) {
@@ -1202,12 +1290,15 @@ export function AppProvider({ children }) {
           return t;
         })
       );
-      addNotification(
-        'Driver Arrived at Pickup',
-        `Your driver is at your pickup location. Please share your 4-digit OTP: ${targetOtp}.`,
-        'car'
-      );
-      addToast('Driver has arrived at pickup location.', 'info');
+
+      if (isTripForUser) {
+        addNotification(
+          'Driver Arrived at Pickup',
+          `Your driver is at your pickup location. Please share your 4-digit OTP: ${targetOtp}.`,
+          'car'
+        );
+        addToast('Driver has arrived at pickup location.', 'info');
+      }
     });
 
     const unbindOtp1 = realtime.on('START_OTP_VERIFIED', ({ tripId }) => {
@@ -1228,43 +1319,62 @@ export function AppProvider({ children }) {
 
     const unbindStart = realtime.on('TRIP_STARTED', ({ tripId }) => {
       const isMatch = (id) => id === tripId || normalizeTripKey(id) === normalizeTripKey(tripId);
+      const foundTrip = trips.find(t => isMatch(t.id));
+      const currentUser = userRef.current;
+      const isTripForUser = currentUser && foundTrip && isUserTrip(foundTrip, currentUser);
+
       setTrips(prev =>
         prev.map(t => (isMatch(t.id) ? { ...t, status: 'inprogress', startedAt: Date.now() } : t))
       );
-      addNotification(
-        'Trip in Progress',
-        'Your driver has started the trip. Live GPS route tracking is active.',
-        'map'
-      );
-      addToast('Trip started. Live tracking active.', 'check');
+
+      if (isTripForUser) {
+        addNotification(
+          'Trip in Progress',
+          'Your driver has started the trip. Live GPS route tracking is active.',
+          'map'
+        );
+        addToast('Trip started. Live tracking active.', 'check');
+      }
     });
 
     const unbindEndReq = realtime.on('END_OTP_REQUESTED', ({ tripId }) => {
       const isMatch = (id) => id === tripId || normalizeTripKey(id) === normalizeTripKey(tripId);
+      const foundTrip = trips.find(t => isMatch(t.id));
+      const currentUser = userRef.current;
+      const isTripForUser = currentUser && foundTrip && isUserTrip(foundTrip, currentUser);
+
       setTrips(prev =>
         prev.map(t => (isMatch(t.id) ? { ...t, status: 'invoice_pending', endedAt: Date.now() } : t))
       );
-      // Immediately remove and close tracking popup on User App when driver ends trip
-      setLiveTrackingOpen(false);
-      setActiveTrackingTripId(null);
-      setUTab('home');
-      addNotification(
-        'Arrived at Destination',
-        'Trip ended at destination. Driver is finalizing invoice.',
-        'flag'
-      );
-      addToast('Destination reached. Trip ended.', 'check');
+
+      if (isTripForUser) {
+        setLiveTrackingOpen(false);
+        setActiveTrackingTripId(null);
+        setUTab('home');
+        addNotification(
+          'Arrived at Destination',
+          'Trip ended at destination. Driver is finalizing invoice.',
+          'flag'
+        );
+        addToast('Destination reached. Trip ended.', 'check');
+      }
     });
 
     const unbindRideEnded = realtime.on('RIDE_ENDED', ({ tripId }) => {
       const isMatch = (id) => id === tripId || normalizeTripKey(id) === normalizeTripKey(tripId);
+      const foundTrip = trips.find(t => isMatch(t.id));
+      const currentUser = userRef.current;
+      const isTripForUser = currentUser && foundTrip && isUserTrip(foundTrip, currentUser);
+
       setTrips(prev =>
         prev.map(t => (isMatch(t.id) ? { ...t, status: 'invoice_pending', endedAt: Date.now() } : t))
       );
-      // Immediately remove and close tracking popup on User App when driver ends trip
-      setLiveTrackingOpen(false);
-      setActiveTrackingTripId(null);
-      setUTab('home');
+
+      if (isTripForUser) {
+        setLiveTrackingOpen(false);
+        setActiveTrackingTripId(null);
+        setUTab('home');
+      }
     });
 
     // Local driver decline does not dismiss pop-up or tone on other drivers' devices
@@ -1272,18 +1382,32 @@ export function AppProvider({ children }) {
 
     const handleTripCancelled = ({ tripId }) => {
       const isMatch = (id) => String(id) === String(tripId) || normalizeTripKey(id) === normalizeTripKey(tripId);
+      const foundTrip = trips.find(t => isMatch(t.id));
+      const currentUser = userRef.current;
+      const currentDriver = driverPartnerRef.current;
+      const myDriverId = getDeviceDriverId(currentDriver || DEFAULT_DRIVER);
+      const isTripForUser = currentUser && foundTrip && isUserTrip(foundTrip, currentUser);
+      const isTripForDriver = currentDriver && (foundTrip?.driver_id === myDriverId || foundTrip?.driverObj?.id === myDriverId);
+
       setIncomingTripRequest(prev => (prev && isMatch(prev.id) ? null : prev));
-      setTrips(prev => prev.filter(t => !isMatch(t.id)));
-      setActiveTrackingTripId(prev => (prev && isMatch(prev) ? null : prev));
-      setLiveTrackingOpen(false);
       dismissIncomingRideNotification(tripId);
       stopActiveTone();
+
+      if (isTripForUser || isTripForDriver) {
+        setTrips(prev => prev.filter(t => !isMatch(t.id)));
+        setActiveTrackingTripId(prev => (prev && isMatch(prev) ? null : prev));
+        setLiveTrackingOpen(false);
+      }
     };
     const unbindCancel = realtime.on('TRIP_CANCELLED', handleTripCancelled);
     const unbindRideCancel = realtime.on('RIDE_CANCELLED', handleTripCancelled);
 
-    const unbindComp = realtime.on('TRIP_COMPLETED', ({ tripId, ...details }) => {
+    const handleTripCompleted = ({ tripId, ...details }) => {
       const isMatch = (id) => id === tripId || normalizeTripKey(id) === normalizeTripKey(tripId);
+      const foundTrip = trips.find(t => isMatch(t.id));
+      const currentUser = userRef.current;
+      const isTripForUser = currentUser && foundTrip && isUserTrip(foundTrip, currentUser);
+
       setTrips(prev =>
         prev.map(t => (isMatch(t.id) ? {
           ...t,
@@ -1300,75 +1424,37 @@ export function AppProvider({ children }) {
           completedAt: details.timestamp || Date.now()
         } : t))
       );
-      const dName = (typeof details?.driver === 'string' ? details.driver : details?.driver?.name) || 'Driver';
-      addNotification(
-        'Trip Completed! How was your ride?',
-        `Your ride is complete. Tap to rate your driver and share your experience.`,
-        'star',
-        {
-          category: 'trip_rating',
-          tripId,
-          driverName: dName,
-          canRate: true
-        }
-      );
-      // Automatic transition to post-trip review and rating modal
-      setTrips(currentTrips => {
-        const found = currentTrips.find(t => t.id === tripId);
-        const compTrip = found ? { ...found, ...details, status: 'completed' } : { id: tripId, ...details, status: 'completed' };
-        setCompletedTripData(compTrip);
-        return currentTrips;
-      });
-      setTripCompleteModalOpen(true);
-      setLiveTrackingOpen(false);
-      setActiveTrackingTripId(null);
-      setUTab('home');
-    });
 
-    const unbindRideComp = realtime.on('RIDE_COMPLETED', ({ tripId, ...details }) => {
-      setTrips(prev =>
-        prev.map(t => (t.id === tripId ? {
-          ...t,
-          status: 'completed',
-          fare: details.fare || t.fare,
-          baseFare: details.baseFare || t.baseFare || t.fare,
-          extensionDistanceKm: details.extensionDistanceKm ?? t.extensionDistanceKm,
-          extensionFare: details.extensionFare ?? t.extensionFare,
-          waitingMinutes: details.waitingMinutes ?? t.waitingMinutes,
-          waitingFare: details.waitingFare ?? t.waitingFare,
-          advancePaid: details.advancePaid ?? t.advancePaid,
-          balancePaid: details.balancePaid ?? t.balancePaid,
-          invoiceText: details.invoiceText || t.invoiceText,
-          completedAt: details.timestamp || Date.now()
-        } : t))
-      );
-      // Automatic transition to post-trip review and rating modal
-      setTrips(currentTrips => {
-        const found = currentTrips.find(t => t.id === tripId);
-        const compTrip = found ? { ...found, ...details, status: 'completed' } : { id: tripId, ...details, status: 'completed' };
-        setCompletedTripData(compTrip);
+      if (isTripForUser) {
+        setTrips(currentTrips => {
+          const found = currentTrips.find(t => isMatch(t.id));
+          const compTrip = found ? { ...found, ...details, status: 'completed' } : { id: tripId, ...details, status: 'completed' };
+          setCompletedTripData(compTrip);
 
-        const dName = (typeof compTrip.driver === 'string' ? compTrip.driver : compTrip.driver?.name) || compTrip.driverObj?.name || 'Driver';
-        addNotification(
-          'Trip Completed! How was your ride?',
-          `Your trip with ${dName} is complete. Tap to rate your driver and share your experience.`,
-          'star',
-          {
-            category: 'trip_rating',
-            tripId,
-            trip: compTrip,
-            driverName: dName,
-            canRate: true
-          }
-        );
+          const dName = (typeof compTrip.driver === 'string' ? compTrip.driver : compTrip.driver?.name) || compTrip.driverObj?.name || 'Driver';
+          addNotification(
+            'Trip Completed! How was your ride?',
+            `Your trip with ${dName} is complete. Tap to rate your driver and share your experience.`,
+            'star',
+            {
+              category: 'trip_rating',
+              tripId,
+              trip: compTrip,
+              driverName: dName,
+              canRate: true
+            }
+          );
+          return currentTrips;
+        });
+        setTripCompleteModalOpen(true);
+        setLiveTrackingOpen(false);
+        setActiveTrackingTripId(null);
+        setUTab('home');
+      }
+    };
 
-        return currentTrips;
-      });
-      setTripCompleteModalOpen(true);
-      setLiveTrackingOpen(false);
-      setActiveTrackingTripId(null);
-      setUTab('home');
-    });
+    const unbindComp = realtime.on('TRIP_COMPLETED', handleTripCompleted);
+    const unbindRideComp = realtime.on('RIDE_COMPLETED', handleTripCompleted);
 
     const unbindLoc = realtime.on('LOCATION_UPDATE', (telemetry) => {
       if (!telemetry?.tripId) return;
@@ -2190,6 +2276,12 @@ export function AppProvider({ children }) {
   };
 
   const arrivedAtPickup = (tripId) => {
+    const myDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
+    const target = (trips || []).find(t => t.id === tripId);
+    if (target && target.driver_id && String(target.driver_id) !== String(myDriverId)) {
+      addToast('Unauthorized: This trip is assigned to another driver', 'alert');
+      return;
+    }
     let targetOtp = '4821';
     setTrips(prev =>
       prev.map(t => {
@@ -2230,6 +2322,12 @@ export function AppProvider({ children }) {
   };
 
   const startTrip = (tripId, extra = {}) => {
+    const myDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
+    const target = (trips || []).find(t => t.id === tripId);
+    if (target && target.driver_id && String(target.driver_id) !== String(myDriverId)) {
+      addToast('Unauthorized: This trip is assigned to another driver', 'alert');
+      return;
+    }
     setTrips(prev =>
       prev.map(t => (t.id === tripId ? {
         ...t,
@@ -2244,6 +2342,12 @@ export function AppProvider({ children }) {
   };
 
   const requestEndTrip = (tripId) => {
+    const myDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
+    const target = (trips || []).find(t => t.id === tripId);
+    if (target && target.driver_id && String(target.driver_id) !== String(myDriverId)) {
+      addToast('Unauthorized: This trip is assigned to another driver', 'alert');
+      return;
+    }
     // End trip directly without requiring customer OTP
     setTrips(prev =>
       prev.map(t => (t.id === tripId ? { ...t, status: 'invoice_pending', endedAt: Date.now() } : t))
@@ -2437,7 +2541,25 @@ export function AppProvider({ children }) {
 
   // User/Customer cancel ride logic: Cancels the trip globally for all drivers with platform cancellation fee deduction
   const cancelTripByUser = (tripId, { feeOverride } = {}) => {
+    const currentUser = userRef.current || user;
+    if (!currentUser) {
+      addToast('Please sign in to manage bookings', 'alert');
+      return;
+    }
+
     const targetTrip = (trips || []).find(t => t.id === tripId);
+    if (!targetTrip) {
+      addToast('Trip not found', 'alert');
+      return;
+    }
+
+    // Strict authorization: Only the customer who owns the booking can cancel it
+    if (!isUserTrip(targetTrip, currentUser)) {
+      addToast('Unauthorized: You can only cancel your own bookings', 'alert');
+      console.warn('[Security] Unauthorized trip cancellation attempt blocked for trip:', tripId);
+      return;
+    }
+
     const isDriverAssigned = targetTrip && (
       Boolean(targetTrip.driver) ||
       Boolean(targetTrip.driverId) ||

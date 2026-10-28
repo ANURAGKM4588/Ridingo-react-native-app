@@ -9,7 +9,7 @@
  *    - Instant test code and auto-fill helper so developers & users on localhost are never blocked
  * 2. Complete mobile-first authentication for User & Driver apps
  */
-import { auth as firebaseAuth } from '../lib/firebase';
+import { auth as firebaseAuth } from '../lib/firebase.js';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
 // In-memory holder for Firebase phone confirmation result
@@ -17,6 +17,94 @@ let activeConfirmationResult = null;
 let activeRecaptchaVerifier = null;
 let activeSimulatedCode = null;
 let activeSimulatedPhone = null;
+
+// ============================================================================
+// OTP Rate Limiting & Abuse Protection
+// ============================================================================
+const OTP_COOLDOWN_SECONDS = 60;
+const OTP_MAX_ATTEMPTS_PER_WINDOW = 4;
+const OTP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes sliding window
+const inMemoryOtpLimits = new Map();
+
+function getStorageOtpData(digits10) {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return inMemoryOtpLimits.get(digits10) || { attempts: [], lastSent: 0 };
+  }
+  try {
+    const raw = window.localStorage.getItem(`ridingo_otp_limit_${digits10}`);
+    return raw ? JSON.parse(raw) : (inMemoryOtpLimits.get(digits10) || { attempts: [], lastSent: 0 });
+  } catch (_) {
+    return inMemoryOtpLimits.get(digits10) || { attempts: [], lastSent: 0 };
+  }
+}
+
+function saveStorageOtpData(digits10, data) {
+  inMemoryOtpLimits.set(digits10, data);
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(`ridingo_otp_limit_${digits10}`, JSON.stringify(data));
+    } catch (_) {}
+  }
+}
+
+/**
+ * Returns remaining cooldown in seconds for a mobile number (0 if expired)
+ */
+export function getOtpCooldownRemaining(phone) {
+  if (!phone) return 0;
+  const digits10 = String(phone).replace(/\D/g, '').slice(-10);
+  if (digits10.length < 10) return 0;
+
+  const data = getStorageOtpData(digits10);
+  const now = Date.now();
+  const elapsedSec = Math.floor((now - (data.lastSent || 0)) / 1000);
+  const remaining = OTP_COOLDOWN_SECONDS - elapsedSec;
+  return remaining > 0 ? remaining : 0;
+}
+
+/**
+ * Clears OTP rate limiting state for a phone number on successful verification
+ */
+export function clearOtpRateLimit(phone) {
+  if (!phone) return;
+  const digits10 = String(phone).replace(/\D/g, '').slice(-10);
+  inMemoryOtpLimits.delete(digits10);
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.removeItem(`ridingo_otp_limit_${digits10}`);
+    } catch (_) {}
+  }
+}
+
+/**
+ * Validates cooldown and window rate limits before dispatching OTP
+ */
+function assertOtpRateLimit(phone) {
+  const digits10 = String(phone).replace(/\D/g, '').slice(-10);
+  const now = Date.now();
+  const data = getStorageOtpData(digits10);
+
+  // 1. Cooldown check (60s minimum interval)
+  const cooldownRemaining = getOtpCooldownRemaining(phone);
+  if (cooldownRemaining > 0) {
+    throw new Error(`Please wait ${cooldownRemaining}s before requesting a new verification code.`);
+  }
+
+  // 2. Sliding window check (max 4 per 15 minutes)
+  const recentAttempts = (data.attempts || []).filter(ts => now - ts < OTP_WINDOW_MS);
+  if (recentAttempts.length >= OTP_MAX_ATTEMPTS_PER_WINDOW) {
+    const oldest = recentAttempts[0];
+    const waitMins = Math.max(1, Math.ceil((oldest + OTP_WINDOW_MS - now) / 60000));
+    throw new Error(`Too many OTP requests for this number. For security, please wait ${waitMins} minute(s) before trying again.`);
+  }
+
+  // Record new attempt
+  recentAttempts.push(now);
+  saveStorageOtpData(digits10, {
+    lastSent: now,
+    attempts: recentAttempts
+  });
+}
 
 /**
  * Returns currently generated OTP code for instant testing/auto-fill
@@ -111,41 +199,23 @@ export async function sendPhoneOtp(phone, recaptchaContainerId = 'recaptcha-cont
     throw new Error('Please enter a valid 10-digit mobile number.');
   }
 
+  // 1. Enforce Cooldown & Window Rate Limits
+  assertOtpRateLimit(cleanPhone);
+
   // Generate 6-digit verification code
   const generatedCode = cleanPhone.endsWith('12345') ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
   activeSimulatedCode = generatedCode;
   activeSimulatedPhone = cleanPhone;
 
-  // 1. Check for external HTTP SMS Gateway API Key (e.g. 2Factor.in or Fast2SMS) for instant Indian SMS
-  if (import.meta.env.VITE_2FACTOR_API_KEY && !import.meta.env.VITE_2FACTOR_API_KEY.includes('DEMO')) {
-    try {
-      const twoFactorUrl = `https://2factor.in/API/V1/${import.meta.env.VITE_2FACTOR_API_KEY}/SMS/+91${digits10}/${generatedCode}/OTP1`;
-      fetch(twoFactorUrl).catch(e => console.warn('2Factor error:', e));
-    } catch (e) {}
-  }
-
-  if (import.meta.env.VITE_FAST2SMS_API_KEY && !import.meta.env.VITE_FAST2SMS_API_KEY.includes('DEMO')) {
-    try {
-      fetch('https://www.fast2sms.com/dev/bulkV2', {
-        method: 'POST',
-        headers: {
-          'authorization': import.meta.env.VITE_FAST2SMS_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          route: 'otp',
-          variables_values: generatedCode,
-          numbers: digits10
-        })
-      }).catch(e => console.warn('Fast2SMS error:', e));
-    } catch (e) {}
-  }
+  // Note: Third-party SMS gateways (Fast2SMS / 2Factor) must be dispatched from backend endpoints.
+  // Direct client-side invocation with private authorization headers has been removed for security.
 
   // 2. Attempt official Firebase Phone Auth with reCAPTCHA
   let appVerifier = null;
+  const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? process.env : {});
   const isRealFirebaseKey = 
-    import.meta.env.VITE_FIREBASE_API_KEY &&
-    !import.meta.env.VITE_FIREBASE_API_KEY.includes('DEMO_KEY');
+    env.VITE_FIREBASE_API_KEY &&
+    !env.VITE_FIREBASE_API_KEY.includes('DEMO_KEY');
 
   if (isRealFirebaseKey && firebaseAuth) {
     try {
@@ -232,6 +302,7 @@ export async function verifyPhoneOtp(token, phone) {
       const result = await activeConfirmationResult.confirm(cleanToken);
       activeConfirmationResult = null;
       activeSimulatedCode = null;
+      clearOtpRateLimit(cleanPhone);
 
       return {
         success: true,
@@ -258,6 +329,7 @@ export async function verifyPhoneOtp(token, phone) {
   if (cleanToken === '123456' || (activeSimulatedCode && cleanToken === activeSimulatedCode)) {
     activeConfirmationResult = null;
     activeSimulatedCode = null;
+    clearOtpRateLimit(cleanPhone);
 
     return {
       success: true,
@@ -295,5 +367,7 @@ export default {
   verifyPhoneOtp,
   sendOtp,
   verifyOtp,
-  getActiveOtp
+  getActiveOtp,
+  getOtpCooldownRemaining,
+  clearOtpRateLimit
 };

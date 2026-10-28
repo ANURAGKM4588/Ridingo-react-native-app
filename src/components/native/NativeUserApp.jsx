@@ -215,6 +215,7 @@ export default function NativeUserApp() {
         {activeTab === 'trips' && (
           <NativeTripsTab
             trips={trips}
+            user={user}
             isDark={isDark}
             onOpenBooking={handleOpenBooking}
             onOpenLiveTracking={handleOpenLiveTracking}

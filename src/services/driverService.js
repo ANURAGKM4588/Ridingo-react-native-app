@@ -9,6 +9,19 @@ import { supabase } from '../lib/supabase';
 
 export const LOCAL_DRIVERS_KEY = 'ridingo_registered_drivers_registry';
 
+/**
+ * Checks whether the current session has verified administrator privileges.
+ */
+export function isAdminAuthenticated() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem('ridingo_admin_auth') === 'true' ||
+           localStorage.getItem('ridingo_admin_auth') === 'true';
+  } catch (_) {
+    return false;
+  }
+}
+
 export const DEFAULT_SEED_DRIVERS = [
   {
     id: 'DRV-8492',
@@ -159,7 +172,11 @@ export function generateDriverProfileId() {
  */
 export async function checkDriverExists({ phone, email }) {
   const cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : '';
-  const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+  const rawEmail = email ? String(email).trim().toLowerCase() : '';
+  // Sanitize email: allow only valid characters, strip PostgREST filter injection operators
+  const cleanEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(rawEmail)
+    ? rawEmail.replace(/[^a-zA-Z0-9@._%+-]/g, '')
+    : '';
 
   if (!cleanPhone && !cleanEmail) {
     return { exists: false, matchedField: null, driver: null };
@@ -183,25 +200,32 @@ export async function checkDriverExists({ phone, email }) {
     }
   }
 
-  // 2. Check Supabase drivers table
+  // 2. Check Supabase drivers table (strictly query targeting the specific phone/email only)
   if (supabase && typeof supabase.from === 'function') {
     try {
-      const { data, error } = await supabase.from('drivers').select('*');
-      if (!error && Array.isArray(data)) {
-        for (const row of data) {
-          const rowPhone = String(row.phone || '').replace(/\D/g, '').slice(-10);
-          const rowEmail = String(row.email || '').trim().toLowerCase();
+      let query = supabase.from('drivers').select('id, name, phone, email, category, status');
+      if (cleanPhone && cleanEmail) {
+        query = query.or(`phone.ilike.%${cleanPhone}%,email.eq.${cleanEmail}`);
+      } else if (cleanPhone) {
+        query = query.ilike('phone', `%${cleanPhone}%`);
+      } else if (cleanEmail) {
+        query = query.eq('email', cleanEmail);
+      }
+      const { data, error } = await query.limit(1);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const row = data[0];
+        const rowPhone = String(row.phone || '').replace(/\D/g, '').slice(-10);
+        const rowEmail = String(row.email || '').trim().toLowerCase();
 
-          const phoneMatch = !!(cleanPhone && rowPhone && cleanPhone === rowPhone);
-          const emailMatch = !!(cleanEmail && rowEmail && cleanEmail === rowEmail);
+        const phoneMatch = !!(cleanPhone && rowPhone && cleanPhone === rowPhone);
+        const emailMatch = !!(cleanEmail && rowEmail && cleanEmail === rowEmail);
 
-          if (phoneMatch || emailMatch) {
-            return {
-              exists: true,
-              matchedField: phoneMatch && emailMatch ? 'both' : (phoneMatch ? 'phone' : 'email'),
-              driver: row
-            };
-          }
+        if (phoneMatch || emailMatch) {
+          return {
+            exists: true,
+            matchedField: phoneMatch && emailMatch ? 'both' : (phoneMatch ? 'phone' : 'email'),
+            driver: row
+          };
         }
       }
     } catch (_) {}
@@ -252,7 +276,11 @@ export async function fetchDriversFromSupabase() {
     return getLocalDriverRegistry();
   }
   try {
-    const { data, error } = await supabase.from('drivers').select('*');
+    const isAdmin = isAdminAuthenticated();
+    const selectCols = isAdmin
+      ? '*'
+      : 'id, name, first_name, last_name, phone, city, state, nationality, avatar, category, status, rating, trips_completed, total_earnings, created_at';
+    const { data, error } = await supabase.from('drivers').select(selectCols);
     if (error || !data || data.length === 0) {
       return getLocalDriverRegistry();
     }
@@ -261,30 +289,31 @@ export async function fetchDriversFromSupabase() {
     const map = new Map(local.map(d => [d.id, d]));
 
     data.forEach(row => {
+      // Data privacy protection: Only verified administrators can access KYC documents, Aadhar, DL photos, and full residential addresses
       map.set(row.id, {
         id: row.id,
         name: row.name || `${row.first_name || ''} ${row.last_name || ''}`.trim(),
         firstName: row.first_name || row.name?.split(' ')[0] || '',
         lastName: row.last_name || row.name?.split(' ').slice(1).join(' ') || '',
-        phone: row.phone,
-        email: row.email,
-        homeAddress: row.home_address || row.address,
-        street: row.street,
-        city: row.city,
-        pincode: row.pincode || row.pin,
+        phone: isAdmin ? row.phone : (row.phone ? `${row.phone.slice(0, 6)}••••` : ''),
+        email: isAdmin ? row.email : '',
+        homeAddress: isAdmin ? (row.home_address || row.address) : null,
+        street: isAdmin ? row.street : null,
+        city: row.city || 'Kochi',
+        pincode: isAdmin ? (row.pincode || row.pin) : '',
         state: row.state || 'Kerala',
         nationality: row.nationality || 'India',
-        dlNumber: row.dl_number,
-        dlPhoto: row.dl_photo,
-        aadharNumber: row.aadhar_number,
-        aadharPhoto: row.aadhar_photo,
+        dlNumber: isAdmin ? row.dl_number : (row.dl_number ? 'KL-••-••••••••' : null),
+        dlPhoto: isAdmin ? row.dl_photo : null,
+        aadharNumber: isAdmin ? row.aadhar_number : (row.aadhar_number ? '•••• •••• ••••' : null),
+        aadharPhoto: isAdmin ? row.aadhar_photo : null,
         avatar: row.avatar || row.profile_pic,
         category: row.category || (row.status === 'approved' ? 'old_registered' : 'new_registration'),
         status: row.status || 'pending',
         registeredAt: row.created_at || new Date().toISOString(),
         rating: row.rating || 5.0,
         tripsCompleted: row.trips_completed || 0,
-        totalEarnings: row.total_earnings || 0
+        totalEarnings: isAdmin ? (row.total_earnings || 0) : 0
       });
     });
 
@@ -409,6 +438,10 @@ export async function registerDriverProfile(driverData) {
  * Approve driver KYC: converts from 'new_registration' to 'old_registered' with status 'approved'
  */
 export async function approveDriverKyc(driverId) {
+  if (!isAdminAuthenticated()) {
+    throw new Error('Unauthorized: Executive administrative privileges required to approve driver KYC.');
+  }
+
   const list = getLocalDriverRegistry();
   const updated = list.map(d => {
     if (d.id === driverId) {
@@ -441,6 +474,10 @@ export async function approveDriverKyc(driverId) {
  * Reject driver KYC
  */
 export async function rejectDriverKyc(driverId, reason = '') {
+  if (!isAdminAuthenticated()) {
+    throw new Error('Unauthorized: Executive administrative privileges required to reject driver KYC.');
+  }
+
   const list = getLocalDriverRegistry();
   const updated = list.map(d => {
     if (d.id === driverId) {
@@ -473,6 +510,10 @@ export async function rejectDriverKyc(driverId, reason = '') {
  * Suspend or Activate Driver
  */
 export async function toggleSuspendDriver(driverId) {
+  if (!isAdminAuthenticated()) {
+    throw new Error('Unauthorized: Executive administrative privileges required to change driver suspension status.');
+  }
+
   const list = getLocalDriverRegistry();
   let nextStatus = 'suspended';
   const updated = list.map(d => {

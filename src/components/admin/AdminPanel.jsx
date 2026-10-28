@@ -8,9 +8,11 @@ import {
   rejectDriverKyc,
   toggleSuspendDriver,
   registerDriverProfile,
-  calculateCrmTelemetry
+  calculateCrmTelemetry,
+  isAdminAuthenticated
 } from '../../services/driverService';
 import { getLocalUserRegistry } from '../../services/userService';
+import { supabase } from '../../lib/supabase';
 import {
   getAllBanners,
   saveOfferBanner,
@@ -114,6 +116,69 @@ const Icons = {
 
 export default function AdminPanel() {
   const { trips, setView, addToast } = useApp();
+
+  // Administrator Authentication State (team.ridingo@gmail.com)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return isAdminAuthenticated();
+  });
+  const [loginEmail, setLoginEmail] = useState('team.ridingo@gmail.com');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleAdminLogin = async (e) => {
+    if (e) e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError('');
+    const email = (loginEmail || '').trim().toLowerCase();
+    const pass = (loginPass || '').trim();
+
+    if (email !== 'team.ridingo@gmail.com') {
+      setLoginError('Invalid credentials. Administrative access is restricted to team.ridingo@gmail.com.');
+      setIsLoggingIn(false);
+      return;
+    }
+
+    // Authenticate securely against Supabase Auth (server-side password hash verification)
+    try {
+      if (supabase && typeof supabase.auth?.signInWithPassword === 'function') {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+        if (!error && data?.session) {
+          sessionStorage.setItem('ridingo_admin_auth', 'true');
+          sessionStorage.setItem('ridingo_admin_email', email);
+          setIsAuthenticated(true);
+          setLoginError('');
+          if (addToast) addToast('Executive administrator authenticated', 'check');
+          setIsLoggingIn(false);
+          return;
+        }
+        if (error) {
+          setLoginError(error.message || 'Invalid administrative credentials. Access denied.');
+          setIsLoggingIn(false);
+          return;
+        }
+      } else {
+        setLoginError('Authentication service unavailable. Please check server connection.');
+        setIsLoggingIn(false);
+        return;
+      }
+    } catch (err) {
+      setLoginError(err.message || 'Authentication error occurred.');
+      setIsLoggingIn(false);
+      return;
+    }
+
+    setLoginError('Invalid administrative credentials. Access denied.');
+    setIsLoggingIn(false);
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('ridingo_admin_auth');
+    sessionStorage.removeItem('ridingo_admin_email');
+    setIsAuthenticated(false);
+    setLoginPass('');
+    if (addToast) addToast('Logged out from Executive CRM Admin Panel', 'info');
+  };
 
   // Active CRM Navigation Tab: 'drivers' | 'telemetry' | 'trips' | 'users'
   const [activeTab, setActiveTab] = useState('drivers');
@@ -232,6 +297,16 @@ export default function AdminPanel() {
   };
 
   const compressImage = (file, maxW, maxH, quality, onDone) => {
+    if (!file) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      if (addToast) addToast('Only JPG, PNG, and WebP images are supported', 'warn');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      if (addToast) addToast('Image size must be under 8MB', 'warn');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -287,6 +362,11 @@ export default function AdminPanel() {
 
   const handleSaveBanner = async (e) => {
     if (e) e.preventDefault();
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     const finalMobile = bannerForm.imageMobile || bannerForm.imageUrl || bannerForm.imageTablet;
     const finalTablet = bannerForm.imageTablet || bannerForm.imageMobile || bannerForm.imageUrl;
     if (!finalMobile && !finalTablet) {
@@ -314,6 +394,11 @@ export default function AdminPanel() {
   };
 
   const handleDeleteBanner = async (id) => {
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     if (window.confirm('Are you sure you want to delete this offer banner?')) {
       const updated = await deleteOfferBanner(id);
       setBanners(updated);
@@ -322,6 +407,11 @@ export default function AdminPanel() {
   };
 
   const handleToggleBanner = async (id) => {
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     const updated = await toggleBannerActive(id);
     setBanners(updated);
     if (addToast) addToast('Banner visibility toggled', 'info');
@@ -385,6 +475,11 @@ export default function AdminPanel() {
 
   // Actions
   const handleApprove = async (driverId) => {
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     const updated = await approveDriverKyc(driverId);
     setDrivers(updated);
     if (selectedDriver?.id === driverId) {
@@ -394,11 +489,21 @@ export default function AdminPanel() {
   };
 
   const handleOpenRejectModal = (driverId) => {
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     setRejectModalDriverId(driverId);
     setRejectReasonInput('Document photo blurry / Address verification mismatch');
   };
 
   const handleConfirmReject = async () => {
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     if (!rejectModalDriverId) return;
     const reason = rejectReasonInput.trim() || 'KYC document verification failed';
     const updated = await rejectDriverKyc(rejectModalDriverId, reason);
@@ -412,6 +517,11 @@ export default function AdminPanel() {
   };
 
   const handleToggleSuspend = async (driverId) => {
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     const updated = await toggleSuspendDriver(driverId);
     setDrivers(updated);
     if (selectedDriver?.id === driverId) {
@@ -423,6 +533,11 @@ export default function AdminPanel() {
 
   const handleCreateDriverSubmit = async (e) => {
     e.preventDefault();
+    if (!isAdminAuthenticated()) {
+      if (addToast) addToast('Administrative authentication required', 'alert');
+      setIsAuthenticated(false);
+      return;
+    }
     if (!newDriverName || !newDriverPhone || !newDriverEmail) {
       addToast('Please fill all mandatory driver fields', 'warn');
       return;
@@ -479,6 +594,178 @@ export default function AdminPanel() {
     shadowCard: '0 20px 45px -15px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.02)',
     shadowElevated: '0 24px 50px -15px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.04)'
   };
+
+  // Strictly gate entire CRM Admin Panel behind verified Administrator Authentication
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        width: '100%',
+        background: T.canvas,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        boxSizing: 'border-box',
+        fontFamily: T.fontSans
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '400px',
+          background: T.card,
+          borderRadius: '28px',
+          border: `1px solid ${T.border}`,
+          padding: '36px 30px',
+          boxShadow: T.shadowElevated,
+          textAlign: 'center',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <BrandLogo height={32} width={120} />
+            <span style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              background: T.taxi,
+              color: '#000000',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}>
+              CRM
+            </span>
+          </div>
+
+          <h2 style={{ fontFamily: T.fontDisplay, fontSize: '20px', fontWeight: 800, margin: '8px 0 4px', color: T.ink }}>
+            Executive Portal
+          </h2>
+          <p style={{ fontSize: '13px', color: T.inkMuted, margin: '0 0 24px', lineHeight: 1.4 }}>
+            Enter authorized administrative credentials to access CRM KYC management and telemetry
+          </p>
+
+          <form onSubmit={handleAdminLogin} style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: T.ink, marginBottom: '6px' }}>
+                Administrator Email
+              </label>
+              <input
+                type="email"
+                required
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="team.ridingo@gmail.com"
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: `1px solid ${T.borderStrong}`,
+                  fontSize: '13.5px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  background: T.surface
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: T.ink, marginBottom: '6px' }}>
+                Admin Password
+              </label>
+              <input
+                type="password"
+                required
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                placeholder="••••••••••••"
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: `1px solid ${T.borderStrong}`,
+                  fontSize: '13.5px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  background: T.surface
+                }}
+              />
+            </div>
+
+            {loginError && (
+              <div style={{
+                background: T.redSoft,
+                border: `1px solid ${T.redBorder}`,
+                color: T.red,
+                padding: '10px 12px',
+                borderRadius: '10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                lineHeight: 1.4
+              }}>
+                {loginError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              style={{
+                marginTop: '8px',
+                width: '100%',
+                padding: '14px',
+                borderRadius: '14px',
+                background: T.ink,
+                color: '#FFFFFF',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {isLoggingIn ? 'Authenticating...' : 'Sign In as Administrator'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '24px', paddingTop: '18px', borderTop: `1px solid ${T.border}`, display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setView('user')}
+              style={{
+                flex: 1,
+                padding: '9px 12px',
+                borderRadius: '10px',
+                border: `1px solid ${T.borderStrong}`,
+                background: T.surface,
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Return to User App
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('driver')}
+              style={{
+                flex: 1,
+                padding: '9px 12px',
+                borderRadius: '10px',
+                border: `1px solid ${T.borderStrong}`,
+                background: T.surface,
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Return to Driver App
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -855,6 +1142,22 @@ export default function AdminPanel() {
             >
               Driver
             </button>
+            <button
+              type="button"
+              onClick={handleAdminLogout}
+              style={{
+                padding: '6px 9px',
+                borderRadius: '10px',
+                border: `1px solid ${T.redBorder}`,
+                background: T.redSoft,
+                color: T.red,
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              Sign Out
+            </button>
           </div>
         </div>
 
@@ -1080,11 +1383,33 @@ export default function AdminPanel() {
         <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
             <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: T.green }} />
-            <span style={{ fontSize: '12px', color: T.inkMuted, fontWeight: 500 }}>Live Telemetry Active</span>
+            <span style={{ fontSize: '12px', color: T.inkMuted, fontWeight: 600 }}>Admin Authenticated</span>
           </div>
-          <div style={{ fontSize: '11.5px', color: T.inkDim, lineHeight: 1.4 }}>
-            Production: <strong style={{ color: T.ink }}>ridingo.in/admin</strong>
+          <div style={{ fontSize: '11.5px', color: T.inkDim, lineHeight: 1.4, marginBottom: '12px' }}>
+            Executive: <strong style={{ color: T.ink }}>team.ridingo@gmail.com</strong>
           </div>
+          <button
+            type="button"
+            onClick={handleAdminLogout}
+            style={{
+              width: '100%',
+              padding: '9px 12px',
+              borderRadius: '10px',
+              border: `1px solid ${T.redBorder}`,
+              background: T.redSoft,
+              color: T.red,
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            Sign Out
+          </button>
         </div>
       </aside>
 

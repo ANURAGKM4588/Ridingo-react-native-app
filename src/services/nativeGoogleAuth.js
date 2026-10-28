@@ -10,9 +10,9 @@
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 export const GOOGLE_CONFIG = {
-  iosClientId: '496710932146-dff905ju49pr9j04ph4ii6u5c9moktge.apps.googleusercontent.com',
-  serverClientId: '496710932146-0dc47l9jkgb584na7uu8ajh6bjtg98vu.apps.googleusercontent.com',
-  androidClientId: '496710932146-0dc47l9jkgb584na7uu8ajh6bjtg98vu.apps.googleusercontent.com'
+  iosClientId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_IOS_CLIENT_ID) || '',
+  serverClientId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_SERVER_CLIENT_ID) || '',
+  androidClientId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_ANDROID_CLIENT_ID) || ''
 };
 
 let initialized = false;

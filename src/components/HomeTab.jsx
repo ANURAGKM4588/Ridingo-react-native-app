@@ -994,7 +994,7 @@ export default function HomeTab() {
 
   const isClientTrip = (t) => {
     if (!t) return false;
-    if (!user) return true;
+    if (!user) return false;
     if (isUserTrip && isUserTrip(t, user)) return true;
     const uPhone = String(user.phone || '').replace(/\D/g, '');
     const tPhone = String(t.rider?.phone || '').replace(/\D/g, '');

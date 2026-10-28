@@ -14,6 +14,7 @@ import {
 import Svg, { Path, Rect, Circle, G } from 'react-native-svg';
 import NativeIcon from './NativeIcon';
 import { LightTheme, DarkTheme, Typography, Radii, Shadows } from '../../styles/theme';
+import { isUserTrip } from '../../services/userService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -153,6 +154,7 @@ export default function NativeHomeTab({
   const [submittedReviews, setSubmittedReviews] = useState({});
 
   const activeTrips = (trips || []).filter((t) => {
+    if (user && isUserTrip && !isUserTrip(t, user)) return false;
     if (dismissedTripIds.includes(t.id)) return false;
     if (['inprogress', 'ready_to_start', 'pickup_arrived', 'accepted', 'requested'].includes(t.status)) return true;
     if (t.status === 'completed') return true;

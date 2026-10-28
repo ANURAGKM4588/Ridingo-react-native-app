@@ -31,29 +31,14 @@ BEGIN
     IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'chat_messages') THEN
         TRUNCATE TABLE public.chat_messages CASCADE;
     END IF;
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'api_rate_limits') THEN
+        TRUNCATE TABLE public.api_rate_limits CASCADE;
+    END IF;
 END $$;
 
 -- 4. (Optional) If you also want to remove registered auth logins (phone/email auth accounts):
 -- TRUNCATE auth.users CASCADE;
 
--- 5. Enable DELETE policies so client applications / admin can delete records if needed in future
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = 'public' 
-        AND tablename = 'profiles' 
-        AND policyname = 'Allow delete on profiles'
-    ) THEN
-        CREATE POLICY "Allow delete on profiles" ON public.profiles FOR DELETE USING (true);
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = 'public' 
-        AND tablename = 'trips' 
-        AND policyname = 'Allow delete on trips'
-    ) THEN
-        CREATE POLICY "Allow delete on trips" ON public.trips FOR DELETE USING (true);
-    END IF;
-END $$;
+-- 5. Clean up any legacy permissive delete policies (use strict RLS policies from supabase_complete_setup.sql)
+DROP POLICY IF EXISTS "Allow delete on profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow delete on trips" ON public.trips;

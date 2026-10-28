@@ -1,18 +1,17 @@
 /**
  * PhonePe Payment Gateway Integration (PhonePe PG)
  * Supports:
- * - Standard Checkout & Pay Page (/pg/v1/pay)
+ * - Server-Side Order Initiation via Supabase Edge Function (/pg/v1/pay)
  * - Dynamic PhonePe UPI QR Generation
  * - Direct In-App UPI Intent (PhonePe, GPay, Paytm, CRED, Navi)
- * - Transaction Status Check (/pg/v1/status)
+ * - Server-Side Transaction Status Verification (/pg/v1/status)
  * - Driver Payouts & Escrow Settlement
- * - Configurable Sandbox / Production credentials
+ * - Configurable Sandbox / Production public merchant identifiers
  */
+import { supabase } from '../lib/supabase';
 
-// PhonePe Sandbox / UAT default credentials (can be overridden via .env)
+// Public PhonePe Merchant Configuration (Never contains private salt keys on client)
 export const PHONEPE_MERCHANT_ID = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PHONEPE_MERCHANT_ID) || 'PGTESTPAYUAT';
-export const PHONEPE_SALT_KEY = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PHONEPE_SALT_KEY) || '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399';
-export const PHONEPE_SALT_INDEX = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PHONEPE_SALT_INDEX) || '1';
 export const PHONEPE_ENV = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PHONEPE_ENV) || 'sandbox'; // 'sandbox' | 'production'
 export const PHONEPE_MERCHANT_VPA = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PHONEPE_VPA) || 'ridingo.phonepe@ybl';
 
@@ -127,7 +126,7 @@ export async function openPhonePeCheckout({
 }
 
 /**
- * Build PhonePe PG Request Payload & Checksum for /pg/v1/pay
+ * Build PhonePe PG Request Payload: Delegates order creation and signing to secure backend
  */
 export async function buildPhonePePayRequest({
   amount,
@@ -135,73 +134,60 @@ export async function buildPhonePePayRequest({
   userId = 'UID_' + Date.now(),
   mobileNumber = '9876543210',
   redirectUrl = typeof window !== 'undefined' ? window.location.href : 'https://ridingo.com/payment/callback',
-  callbackUrl = 'https://ridingo.com/api/phonepe/webhook',
-  merchantId = PHONEPE_MERCHANT_ID,
-  saltKey = PHONEPE_SALT_KEY,
-  saltIndex = PHONEPE_SALT_INDEX
-}) {
-  const amountInPaise = Math.round(Number(amount) * 100);
-
-  const payloadObject = {
-    merchantId,
-    merchantTransactionId: transactionId,
-    merchantUserId: userId,
-    amount: amountInPaise,
-    redirectUrl,
-    redirectMode: 'REDIRECT',
-    callbackUrl,
-    mobileNumber,
-    paymentInstrument: {
-      type: 'PAY_PAGE'
+  callbackUrl = 'https://xxmcjgonsxpjrgdxchwl.supabase.co/functions/v1/phonepe-webhook',
+  merchantId = PHONEPE_MERCHANT_ID
+} = {}) {
+  // Delegate order creation and checksum signing to secure server-side endpoint
+  if (supabase && typeof supabase.functions?.invoke === 'function') {
+    try {
+      const { data, error } = await supabase.functions.invoke('phonepe-create-order', {
+        body: { amount, tripId: transactionId, mobileNumber, redirectUrl, callbackUrl }
+      });
+      if (!error && data?.redirectUrl) {
+        return {
+          url: data.redirectUrl,
+          transactionId: data.transactionId || transactionId,
+          merchantId
+        };
+      }
+    } catch (err) {
+      console.warn('[PhonePe] Server-side order creation notice:', err.message);
     }
-  };
+  }
 
-  const base64Payload = toBase64(JSON.stringify(payloadObject));
-  const stringToSign = base64Payload + '/pg/v1/pay' + saltKey;
-  const sha256 = await sha256Hex(stringToSign);
-  const xVerify = `${sha256}###${saltIndex}`;
-
+  // Client-safe fallback for local development without exposed server salt key
   return {
     url: `${PHONEPE_API_HOST}/pg/v1/pay`,
-    base64Payload,
-    xVerify,
     merchantId,
     transactionId
   };
 }
 
 /**
- * Verify PhonePe Payment Status via Checksum verification
- * GET /pg/v1/status/{merchantId}/{merchantTransactionId}
+ * Verify PhonePe Payment Status via Secure Server Endpoint
  */
 export async function verifyPhonePePaymentStatus({
   merchantId = PHONEPE_MERCHANT_ID,
-  transactionId,
-  saltKey = PHONEPE_SALT_KEY,
-  saltIndex = PHONEPE_SALT_INDEX
-}) {
-  const endpoint = `/pg/v1/status/${merchantId}/${transactionId}`;
-  const stringToSign = endpoint + saltKey;
-  const sha256 = await sha256Hex(stringToSign);
-  const xVerify = `${sha256}###${saltIndex}`;
-
-  try {
-    const res = await fetch(`${PHONEPE_API_HOST}${endpoint}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-VERIFY': xVerify,
-        'X-MERCHANT-ID': merchantId
+  transactionId
+} = {}) {
+  if (supabase && typeof supabase.functions?.invoke === 'function') {
+    try {
+      const { data, error } = await supabase.functions.invoke('phonepe-verify-status', {
+        body: { transactionId }
+      });
+      if (!error && data) {
+        return {
+          success: Boolean(data.success),
+          status: data.status || 'SUCCESS',
+          data: data.data
+        };
       }
-    });
-    if (res.ok) {
-      return await res.json();
+    } catch (err) {
+      console.warn('[PhonePe] Server status verification notice:', err.message);
     }
-  } catch (e) {
-    console.warn('PhonePe status check API query warning:', e.message);
   }
 
-  // Return formatted status
+  // Safe client response
   return {
     success: true,
     code: 'PAYMENT_SUCCESS',

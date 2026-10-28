@@ -5,6 +5,7 @@ import Icon from './Icon';
 import { sendOtp, verifyOtp, formatIndianPhone } from '../services/authOtpService';
 import { performNativeGoogleSignIn } from '../services/nativeGoogleAuth';
 import { registerDriverProfile, checkDriverExists } from '../services/driverService';
+import { validateUploadFile, ALLOWED_DOCUMENT_MIME_TYPES } from '../services/secureStorageService.js';
 
 export default function DriverOnboardingModal() {
   const {
@@ -125,14 +126,21 @@ export default function DriverOnboardingModal() {
   const handleFileUpload = (e, setPhotoState, label) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 12 * 1024 * 1024) {
-      addToast('Image size should be under 12MB', 'warn');
+
+    const validation = validateUploadFile(file, {
+      allowedMimeTypes: ALLOWED_DOCUMENT_MIME_TYPES,
+      maxSizeBytes: 10 * 1024 * 1024
+    });
+
+    if (!validation.valid) {
+      addToast(validation.error, 'warn');
       return;
     }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       setPhotoState(event.target.result);
-      addToast(`${label} photo attached`, 'check');
+      addToast(`${label} attached successfully`, 'check');
     };
     reader.readAsDataURL(file);
   };
@@ -227,13 +235,14 @@ export default function DriverOnboardingModal() {
       addToast('Please enter your Last Name', 'warn');
       return;
     }
-    const cleanMobile = regMobile.replace(/\D/g, '');
-    if (cleanMobile.length < 10) {
-      addToast('Please enter a valid 10-digit mobile number', 'warn');
+    const cleanMobile = regMobile.replace(/\D/g, '').slice(-10);
+    if (cleanMobile.length < 10 || !/^[6-9]\d{9}$/.test(cleanMobile)) {
+      addToast('Please enter a valid 10-digit Indian mobile number', 'warn');
       return;
     }
     const cleanEmail = (regEmail || email).trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       addToast('Please enter a valid email address (e.g. driver@example.com)', 'warn');
       return;
     }

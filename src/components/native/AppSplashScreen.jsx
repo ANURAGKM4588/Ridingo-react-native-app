@@ -66,9 +66,10 @@ function ensureExternalResourcesLoaded() {
 
     const gmapsScriptId = 'rg-google-maps-script';
     if (!document.getElementById(gmapsScriptId) && !window.google?.maps) {
+      const gMapsApiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_MAPS_API_KEY) || '';
       const script = document.createElement('script');
       script.id = gmapsScriptId;
-      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyC4h9iZeICidnBBQSiP0wCJo-TX_GxkxNM&libraries=places,geometry&loading=async';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(gMapsApiKey)}&libraries=places,geometry&loading=async`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
