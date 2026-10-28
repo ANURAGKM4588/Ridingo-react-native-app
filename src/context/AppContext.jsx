@@ -4,7 +4,7 @@ import { App as CapApp } from '@capacitor/app';
 import { StatusBar } from '@capacitor/status-bar';
 import { getDeviceLocation, getCachedDeviceLocation } from '../lib/deviceLocation';
 import { processPhonePeCashbackTransfer } from '../utils/phonepe';
-import { realtime } from '../utils/realtime';
+import { realtime, getServerBaseUrl } from '../utils/realtime';
 import {
   notifyIncomingRideRequest,
   notifyDriverTripAccepted,
@@ -788,9 +788,9 @@ export function AppProvider({ children }) {
         ...carObj
       },
       when_ts: Number(row.when_ts) || Date.now(),
-      scheduledDate: carObj.scheduledDate || null,
-      scheduledTime: carObj.scheduledTime || null,
-      scheduleDisplay: carObj.scheduledDate ? `${carObj.scheduledDate} · ${carObj.scheduledTime}` : 'Immediate Pickup',
+      scheduledDate: row.scheduledDate || carObj.scheduledDate || null,
+      scheduledTime: row.scheduledTime || carObj.scheduledTime || null,
+      scheduleDisplay: (row.scheduledDate || carObj.scheduledDate) ? `${row.scheduledDate || carObj.scheduledDate} · ${row.scheduledTime || carObj.scheduledTime}` : 'Immediate Pickup',
       fare: Number(row.fare) || 600,
       advance: Number(row.advance) || 180,
       status: row.status || 'requested',
@@ -816,8 +816,15 @@ export function AppProvider({ children }) {
       driver_id: driverId,
       rider: row.rider || { name: 'Customer', phone: '+91 98401 23456' },
       cashback: Number(row.cashback) || 20,
-      pickupCoords: carObj.pickupCoords || null,
-      dropCoords: carObj.dropCoords || null,
+      pickupCoords: row.pickupCoords || carObj.pickupCoords || null,
+      dropCoords: row.dropCoords || carObj.dropCoords || null,
+      pickupDetails: row.pickupDetails || carObj.pickupDetails || null,
+      dropDetails: row.dropDetails || carObj.dropDetails || null,
+      distanceKm: row.distanceKm || carObj.distanceKm || null,
+      distanceText: row.distanceText || carObj.distanceText || null,
+      durationMins: row.durationMins || carObj.durationMins || null,
+      durationText: row.durationText || carObj.durationText || null,
+      eta: row.eta || carObj.eta || null,
       driverCoords: driverObj?.location || row.driver_location || row.driverCoords || null,
       driverHeading: driverObj?.location?.heading || row.driverHeading || 0,
       driverSpeed: driverObj?.location?.speed || row.driverSpeed || 0,
@@ -830,7 +837,6 @@ export function AppProvider({ children }) {
   // Sync trips from Supabase database table with strict authorization scoping
   const syncTripsFromSupabase = async () => {
     try {
-
       const isCurrentDriverApp =
         window.RIDINGO_TARGET === 'driver' ||
         viewRef.current === 'driver' ||
@@ -849,11 +855,11 @@ export function AppProvider({ children }) {
           localStorage.getItem('ridingo_admin_auth') === 'true'
         ));
 
-      // 1. Query local server API for instant cross-port sync (5173 <-> 5174)
+      // 1. Query local server API for instant cross-port sync (5173 <-> 5174 and Android 10.0.2.2)
       let serverTripsData = [];
       if (typeof window !== 'undefined' && typeof fetch === 'function') {
         try {
-          const sRes = await fetch(`${window.location.origin}/api/trips`);
+          const sRes = await fetch(`${getServerBaseUrl()}/api/trips`);
           if (sRes.ok) {
             serverTripsData = await sRes.json();
           }
@@ -867,25 +873,23 @@ export function AppProvider({ children }) {
         // Driver App: query open 'requested' trips for dispatches AND trips assigned to this driver
         const rawDriverId = getDeviceDriverId(driverPartnerRef.current || driverPartner || DEFAULT_DRIVER);
         const myDriverId = String(rawDriverId || '').replace(/[^a-zA-Z0-9_\-\.]/g, '');
-        query = query.or(`status.eq.requested,status.eq.accepted,status.eq.pickup_arrived,status.eq.ready_to_start,status.eq.inprogress,driver_id.eq.${myDriverId},driver->>id.eq.${myDriverId}`);
-      } else {
-        // User App: STRICT SCOPING - Users must NOT access or view other users' private trip data!
-        const currentUser = userRef.current || user;
-        if (!currentUser) {
-          // Unauthenticated user: do not download any trips from cloud database
-          return;
+        if (query) {
+          query = query.or(`status.eq.requested,status.eq.accepted,status.eq.pickup_arrived,status.eq.ready_to_start,status.eq.inprogress,driver_id.eq.${myDriverId},driver->>id.eq.${myDriverId}`);
         }
-        const userPhone10 = currentUser.phone ? String(currentUser.phone).replace(/\D/g, '').slice(-10) : '';
-        const rawUserId = currentUser.id || currentUser.userId || '';
-        const userId = String(rawUserId).replace(/[^a-zA-Z0-9_\-\.]/g, '');
-        if (userPhone10 && userId) {
-          query = query.or(`by_who.ilike.%${userPhone10}%,rider->>phone.ilike.%${userPhone10}%,rider->>id.eq.${userId},rider->>userId.eq.${userId}`);
-        } else if (userPhone10) {
-          query = query.or(`by_who.ilike.%${userPhone10}%,rider->>phone.ilike.%${userPhone10}%`);
-        } else if (userId) {
-          query = query.or(`rider->>id.eq.${userId},rider->>userId.eq.${userId}`);
-        } else {
-          return;
+      } else {
+        // User App: STRICT SCOPING
+        const currentUser = userRef.current || user;
+        if (currentUser && query) {
+          const userPhone10 = currentUser.phone ? String(currentUser.phone).replace(/\D/g, '').slice(-10) : '';
+          const rawUserId = currentUser.id || currentUser.userId || '';
+          const userId = String(rawUserId).replace(/[^a-zA-Z0-9_\-\.]/g, '');
+          if (userPhone10 && userId) {
+            query = query.or(`by_who.ilike.%${userPhone10}%,rider->>phone.ilike.%${userPhone10}%,rider->>id.eq.${userId},rider->>userId.eq.${userId}`);
+          } else if (userPhone10) {
+            query = query.or(`by_who.ilike.%${userPhone10}%,rider->>phone.ilike.%${userPhone10}%`);
+          } else if (userId) {
+            query = query.or(`rider->>id.eq.${userId},rider->>userId.eq.${userId}`);
+          }
         }
       }
 
@@ -1043,6 +1047,7 @@ export function AppProvider({ children }) {
         window.RIDINGO_TARGET === 'driver' ||
         viewRef.current === 'driver' ||
         (typeof window !== 'undefined' && (
+          window.location.port === '5174' ||
           window.location.search.includes('view=driver') ||
           window.location.search.includes('app=driver') ||
           window.location.hash.includes('driver') ||
@@ -2098,7 +2103,7 @@ export function AppProvider({ children }) {
       // 1. Persist to local server API (immediate cross-port delivery!)
       if (typeof window !== 'undefined' && typeof fetch === 'function') {
         try {
-          fetch(`${window.location.origin}/api/trips`, {
+          fetch(`${getServerBaseUrl()}/api/trips`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(tripObj)
@@ -2175,7 +2180,7 @@ export function AppProvider({ children }) {
     // 1. Update on local server API
     if (typeof window !== 'undefined' && typeof fetch === 'function') {
       try {
-        fetch(`${window.location.origin}/api/trips/${tripId}`, {
+        fetch(`${getServerBaseUrl()}/api/trips/${tripId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status, ...extra })

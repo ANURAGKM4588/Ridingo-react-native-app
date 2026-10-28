@@ -13,6 +13,34 @@ const ACTIVE_TRIP_REQUESTS_KEY = 'ridingo_active_trip_requests_v1';
 const SHARED_TRIPS_KEY = 'ridingo_shared_trips';
 const REALTIME_EVENT_KEY = 'ridingo_realtime_event';
 
+/**
+ * Robust Base URL detector for API requests & SSE events:
+ * In Android Emulator (Capacitor native app), requests to https://localhost/api/ are
+ * intercepted by the local webview asset server (serving index.html with MIME text/html).
+ * In Android, http://10.0.2.2:8088 routes directly to the development host machine over HTTP,
+ * bypassing Capacitor's local asset interceptor.
+ * In web browser, window.location.origin is preserved.
+ */
+export function getServerBaseUrl() {
+  if (typeof window === 'undefined') return 'http://localhost:8088';
+
+  const isCapacitor = Boolean(
+    (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+    window.location.protocol === 'capacitor:' ||
+    (window.location.hostname === 'localhost' && (!window.location.port || window.location.port === '80' || window.location.port === '443'))
+  );
+
+  if (isCapacitor) {
+    const isAndroid = window.Capacitor?.getPlatform?.() === 'android' || /android/i.test(navigator.userAgent);
+    if (isAndroid) {
+      return 'http://10.0.2.2:8088';
+    }
+    return 'http://localhost:8088';
+  }
+
+  return window.location.origin || 'http://localhost:8088';
+}
+
 class RealtimeHub {
   constructor() {
     this.listeners = new Map();
@@ -111,7 +139,9 @@ class RealtimeHub {
       if (this.serverEventSource) {
         try { this.serverEventSource.close(); } catch (_) {}
       }
-      const sseUrl = `${window.location.origin}/api/events`;
+      const baseUrl = getServerBaseUrl();
+      const sseUrl = `${baseUrl}/api/events`;
+      console.info(`[Realtime] Subscribing to server SSE event bus at: ${sseUrl}`);
       this.serverEventSource = new EventSource(sseUrl);
 
       this.serverEventSource.onmessage = (event) => {
@@ -119,6 +149,7 @@ class RealtimeHub {
         try {
           const parsed = JSON.parse(event.data);
           if (parsed && parsed.type && parsed.senderId !== this.clientId) {
+            console.info(`[Realtime] Received SSE event '${parsed.type}' from sender '${parsed.senderId}'`);
             this._dispatchLocal(parsed.type, parsed.payload);
           }
         } catch (_) {}
@@ -126,7 +157,7 @@ class RealtimeHub {
 
       this.serverEventSource.onerror = () => {
         try { this.serverEventSource.close(); } catch (_) {}
-        setTimeout(() => this._initServerEvents(), 4000);
+        setTimeout(() => this._initServerEvents(), 3000);
       };
     } catch (err) {
       console.warn('[Realtime] Server SSE fallback notice:', err);
@@ -168,6 +199,21 @@ class RealtimeHub {
         'RIDE_COMPLETED': 'completed'
       };
       this._clearActiveTrip(payload?.tripId || payload?.id, statusMap[type] || 'accepted');
+    }
+
+    // DISPATCH WINDOW CUSTOM EVENTS FOR DRIVER APP & USER APP COMPONENTS
+    if (typeof window !== 'undefined') {
+      try {
+        if (type === 'TRIP_REQUESTED' && payload) {
+          window.dispatchEvent(new CustomEvent('RIDINGO_SHOW_CUSTOM_DRIVER_NOTIFICATION', { detail: { trip: payload } }));
+          window.dispatchEvent(new CustomEvent('RIDINGO_TRIP_REQUESTED', { detail: { trip: payload } }));
+        } else if (type === 'TRIP_CANCELLED' || type === 'RIDE_CANCELLED') {
+          window.dispatchEvent(new CustomEvent('RIDINGO_TRIP_CANCELLED', { detail: payload }));
+          window.dispatchEvent(new CustomEvent('RIDINGO_HIDE_CUSTOM_DRIVER_NOTIFICATION', { detail: payload }));
+        } else if (type === 'TRIP_ACCEPTED') {
+          window.dispatchEvent(new CustomEvent('RIDINGO_TRIP_ACCEPTED', { detail: payload }));
+        }
+      } catch (_) {}
     }
 
     const set = this.listeners.get(type);
@@ -214,11 +260,10 @@ class RealtimeHub {
       } catch (e) {}
     }
 
-
     // 5. Broadcast to Server-Based Dispatch Bus (guarantees cross-origin delivery between port 5173 and 5174!)
     if (typeof window !== 'undefined' && typeof fetch === 'function') {
       try {
-        fetch(`${window.location.origin}/api/dispatch`, {
+        fetch(`${getServerBaseUrl()}/api/dispatch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type, payload, senderId: this.clientId })
@@ -412,7 +457,7 @@ class RealtimeHub {
     // Instant Server-Based Trip Persistence
     if (typeof window !== 'undefined' && typeof fetch === 'function') {
       try {
-        fetch(`${window.location.origin}/api/trips`, {
+        fetch(`${getServerBaseUrl()}/api/trips`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(trip)
@@ -430,7 +475,7 @@ class RealtimeHub {
     this._clearActiveTrip(tripId, 'accepted');
     if (typeof window !== 'undefined' && typeof fetch === 'function') {
       try {
-        fetch(`${window.location.origin}/api/trips/${tripId}`, {
+        fetch(`${getServerBaseUrl()}/api/trips/${tripId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'accepted', driver, startOtp, driverCoords })

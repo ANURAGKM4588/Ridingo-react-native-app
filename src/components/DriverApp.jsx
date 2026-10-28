@@ -1823,10 +1823,16 @@ export default function DriverApp() {
         syncTripsFromSupabase();
       }
 
-      // 2. Sync from local active requests cache
-      const activeRequests = typeof realtime.getActiveTripRequests === 'function'
+      // 2. Sync from local active requests cache & AppContext trips
+      const realtimeReqs = typeof realtime.getActiveTripRequests === 'function'
         ? realtime.getActiveTripRequests()
         : [realtime.getActiveTripRequest()].filter(Boolean);
+      const appTripsReqs = (trips || []).filter(t => t && t.status === 'requested');
+      const combinedReqsMap = new Map();
+      [...realtimeReqs, ...appTripsReqs].forEach(r => {
+        if (r && r.id) combinedReqsMap.set(String(r.id), r);
+      });
+      const activeRequests = Array.from(combinedReqsMap.values());
 
       // Filter out any requests that are already handled (accepted, declined, settled, or in trips with status != requested)
       let acceptedList = [];
@@ -1867,6 +1873,7 @@ export default function DriverApp() {
         if (latest && (!incomingTripRequest || incomingTripRequest.id !== latest.id)) {
           if (minimizedRequestTripId !== latest.id && !dismissedPopupTripIds.has(latest.id)) {
             setIncomingTripRequest(latest);
+            setCustomPushTrip(latest);
           }
         }
       } else {
