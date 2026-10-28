@@ -15,9 +15,6 @@ const PATHS = {
       <Polyline points="9 22 9 12 15 12 15 22" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
-  homeFilled: (c) => (
-    <Path d="M12 2.1 2.5 9.5a1 1 0 0 0-.5.8V20a2 2 0 0 0 2 2h6v-7h4v7h6a2 2 0 0 0 2-2v-9.7a1 1 0 0 0-.5-.8L12 2.1z" fill={c} />
-  ),
   grid: (c, sw) => (
     <>
       <Rect width="7" height="7" x="3" y="3" rx="1.5" stroke={c} strokeWidth={sw} fill="none" />
@@ -33,12 +30,6 @@ const PATHS = {
       <Path d="M12 7v5l4 2" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
-  historyFilled: (c) => (
-    <>
-      <Circle cx="12" cy="12" r="9" fill={c} />
-      <Path d="M12 7v5l3 2" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" fill="none" />
-    </>
-  ),
   wallet: (c, sw) => (
     <>
       <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -46,22 +37,10 @@ const PATHS = {
       <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
-  walletFilled: (c) => (
-    <>
-      <Path d="M21 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2h-5a3 3 0 0 1 0-6h5zm-2 7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" fill={c} />
-      <Circle cx="19" cy="13" r="1.2" fill="#FFFFFF" />
-    </>
-  ),
   user: (c, sw) => (
     <>
       <Path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" stroke={c} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="12" cy="7" r="4" stroke={c} strokeWidth={sw} fill="none" />
-    </>
-  ),
-  userFilled: (c) => (
-    <>
-      <Path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" fill={c} />
-      <Circle cx="12" cy="7" r="4" fill={c} />
     </>
   ),
   bell: (c, sw) => (
@@ -229,12 +208,13 @@ export default function NativeIcon({
   name = 'home',
   size = 24,
   color = '#0B0B0C',
-  strokeWidth = 2,
+  strokeWidth = 1.8,
   filled = false,
   style,
 }) {
   const camelKey = String(name).replace(/-([a-z])/g, (_, g) => g.toUpperCase());
   const key = filled && PATHS[`${camelKey}Filled`] ? `${camelKey}Filled` : (PATHS[name] ? name : camelKey);
+  const effectiveStrokeWidth = filled ? 2.2 : strokeWidth;
 
   const renderIconContent = PATHS[key] || PATHS.home;
   const flattenedStyle = style ? StyleSheet.flatten(style) : undefined;
@@ -247,14 +227,14 @@ export default function NativeIcon({
         viewBox="0 0 24 24"
         style={flattenedStyle}
       >
-        {renderIconContent(color, strokeWidth)}
+        {renderIconContent(color, effectiveStrokeWidth)}
       </svg>
     );
   }
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" style={flattenedStyle}>
-      {renderIconContent(color, strokeWidth)}
+      {renderIconContent(color, effectiveStrokeWidth)}
     </Svg>
   );
 }
