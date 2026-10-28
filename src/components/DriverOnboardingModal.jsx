@@ -55,6 +55,7 @@ export default function DriverOnboardingModal() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [regMobile, setRegMobile] = useState('');
+  const [regEmail, setRegEmail] = useState('');
 
   // Register - Driver Document & KYC Details
   const [dlNumber, setDlNumber] = useState('');
@@ -231,12 +232,19 @@ export default function DriverOnboardingModal() {
       addToast('Please enter a valid 10-digit mobile number', 'warn');
       return;
     }
+    const cleanEmail = (regEmail || email).trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      addToast('Please enter a valid email address (e.g. driver@example.com)', 'warn');
+      return;
+    }
 
     try {
-      const check = await checkDriverExists({ phone: cleanMobile });
+      const check = await checkDriverExists({ phone: cleanMobile, email: cleanEmail });
       if (check.exists) {
-        addToast('You are already registered with this mobile number. Please sign in.', 'warn');
+        const field = check.matchedField === 'both' ? 'mobile number and email' : (check.matchedField === 'email' ? 'email address' : 'mobile number');
+        addToast(`An account is already registered with this ${field}. Only one account is allowed per driver partner. Please sign in instead.`, 'warn');
         setPhone(cleanMobile);
+        setEmail(cleanEmail);
         setActiveTab('signin');
         return;
       }
@@ -397,11 +405,12 @@ export default function DriverOnboardingModal() {
 
       setTimeout(async () => {
         if (activeTab === 'register') {
+          const cleanEmail = (regEmail || email).trim().toLowerCase();
           const createdDriver = await registerDriverProfile({
             name: `${firstName.trim()} ${lastName.trim()}`.trim() || 'Driver Partner',
             firstName: firstName.trim(),
             lastName: lastName.trim(),
-            email: '',
+            email: cleanEmail,
             phone: regMobile.trim(),
             dlNumber: dlNumber.trim().toUpperCase(),
             dlPhoto: dlPhoto || null,
@@ -417,6 +426,16 @@ export default function DriverOnboardingModal() {
             category: 'new_registration',
             status: 'pending'
           });
+
+          if (createdDriver.alreadyRegistered) {
+            addToast(createdDriver.message, 'warn');
+            setPhone(regMobile.trim());
+            setEmail(cleanEmail);
+            setActiveTab('signin');
+            setStep('form');
+            setOtpStatus('idle');
+            return;
+          }
 
           loginDriverWithDetails({
             ...createdDriver,
@@ -1078,6 +1097,22 @@ export default function DriverOnboardingModal() {
               </div>
             </div>
 
+            <div>
+              <label style={labelStyle}>Email Address *</label>
+              <div style={{ display: 'flex', alignItems: 'center', height: '48px', borderRadius: '14px', background: 'var(--card)', border: '1.5px solid var(--line)', overflow: 'hidden' }}>
+                <input
+                  type="email"
+                  placeholder="e.g. driver@example.com"
+                  value={regEmail}
+                  onChange={e => setRegEmail(e.target.value)}
+                  style={{ flex: 1, height: '100%', border: 'none', outline: 'none', background: 'transparent', padding: '0 14px', fontSize: '14.5px', fontWeight: 600, color: 'var(--ink)' }}
+                  required
+                />
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
+                Only one driver partner account is allowed per email and mobile number.
+              </div>
+            </div>
 
             <button
               type="submit"

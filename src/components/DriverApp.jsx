@@ -19,6 +19,7 @@ import ContactProfileCard from './ContactProfileCard';
 import CustomVideoPlayer from './CustomVideoPlayer';
 import InspectionMediaModal from './InspectionMediaModal';
 import DriverCustomTripNotification from './DriverCustomTripNotification';
+import { isDriverTrip } from '../services/driverService';
 import { supabase } from '../lib/supabase';
 import { getRecordedVideoUrl } from '../utils/inspectionVideoStore';
 import { processPhonePeDriverPayout } from '../utils/phonepe';
@@ -1489,7 +1490,7 @@ export default function DriverApp() {
     }
   }, [incomingTripRequest?.id, incomingTripRequest?.status, dismissedPopupTripIds, minimizedRequestTripId]);
 
-  // Listen to custom push notification dispatch from pushNotificationService
+  // Listen to custom push notification dispatch from pushNotificationService, realtime, & storage
   useEffect(() => {
     const handleCustomPushEvent = (e) => {
       const trip = e.detail?.trip;
@@ -1499,12 +1500,33 @@ export default function DriverApp() {
           if (declined.includes(trip.id)) return;
         } catch (_) {}
         if (dismissedPopupTripIds.has(trip.id) || minimizedRequestTripId === trip.id) return;
+        setIncomingTripRequest(trip);
         setCustomPushTrip(trip);
+        setTrips(prev => {
+          const arr = Array.isArray(prev) ? prev : [];
+          return arr.some(t => t.id === trip.id) ? arr.map(t => t.id === trip.id ? { ...t, ...trip } : t) : [trip, ...arr];
+        });
       }
     };
+
+    const handleStorageEvent = (e) => {
+      if (e.key === 'ridingo_realtime_event' && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          if (data?.type === 'TRIP_REQUESTED' && data.payload?.status === 'requested') {
+            handleCustomPushEvent({ detail: { trip: data.payload } });
+          }
+        } catch (_) {}
+      }
+    };
+
     window.addEventListener('RIDINGO_SHOW_CUSTOM_DRIVER_NOTIFICATION', handleCustomPushEvent);
+    window.addEventListener('RIDINGO_TRIP_REQUESTED', handleCustomPushEvent);
+    window.addEventListener('storage', handleStorageEvent);
     return () => {
       window.removeEventListener('RIDINGO_SHOW_CUSTOM_DRIVER_NOTIFICATION', handleCustomPushEvent);
+      window.removeEventListener('RIDINGO_TRIP_REQUESTED', handleCustomPushEvent);
+      window.removeEventListener('storage', handleStorageEvent);
     };
   }, [dismissedPopupTripIds, minimizedRequestTripId]);
 
@@ -2441,18 +2463,7 @@ export default function DriverApp() {
     }
 
     // Driver isolation: only show trip in upcoming trips if accepted by THIS logged-in driver
-    const myDriverId = getDeviceDriverId(driverPartner || DEFAULT_DRIVER);
-    const tripDriverId = t.driver_id ? String(t.driver_id) : (t.driverObj?.deviceDriverId || (t.driver?.id ? String(t.driver.id) : null));
-
-    if (tripDriverId) {
-      return tripDriverId === myDriverId;
-    }
-    const currentDriverName = (driverPartner?.name || 'Ravi Kumar').toLowerCase().trim();
-    const tripDriverName = (typeof t.driver === 'string' ? t.driver : (t.driver?.name || '')).toLowerCase().trim();
-    if (tripDriverName) {
-      return tripDriverName === currentDriverName;
-    }
-    return true;
+    return isDriverTrip(t, driverPartner || DEFAULT_DRIVER);
   });
 
   // Helper to identify if a trip belongs to Today vs Future Upcoming
@@ -2806,7 +2817,7 @@ export default function DriverApp() {
   };
 
   // Dynamic earnings and trip calculations
-  const completedTrips = trips.filter(t => t.status === 'completed');
+  const completedTrips = trips.filter(t => t.status === 'completed' && isDriverTrip(t, driverPartner || DEFAULT_DRIVER));
   const completedTripsCount = completedTrips.length;
 
   const isTodayDateOrTs = (val) => {
@@ -4590,6 +4601,7 @@ export default function DriverApp() {
 
             {(() => {
               const filtered = trips
+                .filter(t => isDriverTrip(t, driverPartner || DEFAULT_DRIVER))
                 .filter(t => t.status !== 'inprogress')
                 .filter(t => {
                   if (dFilter === 'done') return t.status === 'completed';

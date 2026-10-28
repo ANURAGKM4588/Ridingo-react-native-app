@@ -84,9 +84,9 @@ export const DEFAULT_SEED_DRIVERS = [
     status: 'approved',
     registeredAt: '2025-04-10T11:00:00Z',
     experienceYears: 7,
-    rating: 4.9,
-    tripsCompleted: 184,
-    totalEarnings: 68420
+    rating: 5.0,
+    tripsCompleted: 0,
+    totalEarnings: 0
   },
   {
     id: 'DRV-2042',
@@ -110,9 +110,9 @@ export const DEFAULT_SEED_DRIVERS = [
     status: 'approved',
     registeredAt: '2024-11-20T14:20:00Z',
     experienceYears: 9,
-    rating: 4.85,
-    tripsCompleted: 342,
-    totalEarnings: 124500
+    rating: 5.0,
+    tripsCompleted: 0,
+    totalEarnings: 0
   },
   {
     id: 'DRV-3108',
@@ -136,35 +136,78 @@ export const DEFAULT_SEED_DRIVERS = [
     status: 'approved',
     registeredAt: '2024-06-12T09:45:00Z',
     experienceYears: 11,
-    rating: 4.95,
-    tripsCompleted: 512,
-    totalEarnings: 198400
+    rating: 5.0,
+    tripsCompleted: 0,
+    totalEarnings: 0
   }
 ];
 
 /**
- * Generates an official Ridingo Driver Profile ID: DRV-XXXX
+ * Generates an official Ridingo Driver Profile ID: DRV-XXXXX
  */
 export function generateDriverProfileId() {
-  const num = Math.floor(1000 + Math.random() * 9000);
+  const num = Math.floor(10000 + Math.random() * 90000);
   return `DRV-${num}`;
 }
 
 /**
- * Checks whether a driver with this mobile number is registered
+ * Checks whether a driver with this mobile number or email is already registered
+ * @param {Object} params
+ * @param {string} [params.phone]
+ * @param {string} [params.email]
+ * @returns {Promise<{ exists: boolean, matchedField: 'phone'|'email'|'both'|null, driver: Object|null }>}
  */
-export function checkDriverExists({ phone }) {
-  if (!phone) return { exists: false, driver: null };
-  const clean10 = String(phone).replace(/\D/g, '').slice(-10);
+export async function checkDriverExists({ phone, email }) {
+  const cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : '';
+  const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+
+  if (!cleanPhone && !cleanEmail) {
+    return { exists: false, matchedField: null, driver: null };
+  }
+
+  // 1. Check local driver registry first
   const list = getLocalDriverRegistry();
-  const found = list.find(d => {
-    const d10 = String(d.phone || '').replace(/\D/g, '').slice(-10);
-    return d10 && clean10 && d10 === clean10;
-  });
-  return {
-    exists: !!found,
-    driver: found || null
-  };
+  for (const d of list) {
+    const dPhone = String(d.phone || '').replace(/\D/g, '').slice(-10);
+    const dEmail = String(d.email || '').trim().toLowerCase();
+
+    const phoneMatch = !!(cleanPhone && dPhone && cleanPhone === dPhone);
+    const emailMatch = !!(cleanEmail && dEmail && cleanEmail === dEmail);
+
+    if (phoneMatch || emailMatch) {
+      return {
+        exists: true,
+        matchedField: phoneMatch && emailMatch ? 'both' : (phoneMatch ? 'phone' : 'email'),
+        driver: d
+      };
+    }
+  }
+
+  // 2. Check Supabase drivers table
+  if (supabase && typeof supabase.from === 'function') {
+    try {
+      const { data, error } = await supabase.from('drivers').select('*');
+      if (!error && Array.isArray(data)) {
+        for (const row of data) {
+          const rowPhone = String(row.phone || '').replace(/\D/g, '').slice(-10);
+          const rowEmail = String(row.email || '').trim().toLowerCase();
+
+          const phoneMatch = !!(cleanPhone && rowPhone && cleanPhone === rowPhone);
+          const emailMatch = !!(cleanEmail && rowEmail && cleanEmail === rowEmail);
+
+          if (phoneMatch || emailMatch) {
+            return {
+              exists: true,
+              matchedField: phoneMatch && emailMatch ? 'both' : (phoneMatch ? 'phone' : 'email'),
+              driver: row
+            };
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  return { exists: false, matchedField: null, driver: null };
 }
 
 /**
@@ -258,6 +301,17 @@ export async function fetchDriversFromSupabase() {
  * Registers a new driver profile (Category: 'new_registration', status: 'pending')
  */
 export async function registerDriverProfile(driverData) {
+  // Strict uniqueness enforcement for mobile and email
+  const existsCheck = await checkDriverExists({ phone: driverData.phone, email: driverData.email });
+  if (existsCheck.exists) {
+    const field = existsCheck.matchedField === 'both' ? 'mobile number and email' : (existsCheck.matchedField === 'email' ? 'email address' : 'mobile number');
+    return {
+      alreadyRegistered: true,
+      message: `An account is already registered with this ${field}. Only one account is allowed per driver partner. Please sign in instead.`,
+      driver: existsCheck.driver
+    };
+  }
+
   const driverId = driverData.id || generateDriverProfileId();
   const newDriver = {
     id: driverId,
@@ -482,4 +536,28 @@ export function calculateCrmTelemetry(trips = [], drivers = []) {
     oldRegisteredCount,
     totalDrivers: drivers.length
   };
+}
+
+/**
+ * Scopes a trip specifically to an authenticated driver partner
+ * Matches by Unique Driver ID (DRV-XXXXX), mobile phone, or email.
+ */
+export function isDriverTrip(trip, driver) {
+  if (!trip || !driver) return false;
+  const dId = String(driver.id || driver.driverId || '').trim().toLowerCase();
+  const tDriverId = String(trip.driver_id || trip.driverObj?.id || trip.driver?.id || trip.driverObj?.deviceDriverId || '').trim().toLowerCase();
+  if (dId && tDriverId && dId === tDriverId) {
+    return true;
+  }
+  const cleanPhone = driver.phone ? String(driver.phone).replace(/\D/g, '').slice(-10) : '';
+  const tPhone = (trip.driver?.phone || trip.driverObj?.phone) ? String(trip.driver?.phone || trip.driverObj?.phone).replace(/\D/g, '').slice(-10) : '';
+  if (cleanPhone && tPhone && cleanPhone === tPhone) {
+    return true;
+  }
+  const cleanEmail = driver.email ? String(driver.email).trim().toLowerCase() : '';
+  const tEmail = (trip.driver?.email || trip.driverObj?.email) ? String(trip.driver?.email || trip.driverObj?.email).trim().toLowerCase() : '';
+  if (cleanEmail && tEmail && cleanEmail === tEmail) {
+    return true;
+  }
+  return false;
 }

@@ -190,11 +190,12 @@ export async function registerUserProfile({ firstName, lastName, phone, email, e
   // Check uniqueness against database & registry
   const check = await checkUserExists({ phone: cleanPhone, email: cleanEmail || undefined });
   if (check.exists) {
+    const fieldLabel = check.matchedField === 'both' ? 'mobile number and email' : (check.matchedField === 'email' ? 'email address' : 'mobile number');
     return {
       success: false,
       alreadyRegistered: true,
       matchedField: check.matchedField,
-      message: 'You are already registered with this mobile number. Please log in.',
+      message: `An account is already registered with this ${fieldLabel}. Only one account is allowed per mobile number and email. Please sign in instead.`,
       existingUser: check.user
     };
   }

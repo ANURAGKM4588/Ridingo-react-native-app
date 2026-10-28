@@ -310,8 +310,15 @@ class RealtimeHub {
           if (valid.length > 0) return valid;
         }
       }
-      const single = this.getActiveTripRequest();
-      return single ? [single] : [];
+      // Direct single record fallback without recursion
+      const singleRaw = localStorage.getItem(ACTIVE_TRIP_KEY);
+      if (singleRaw) {
+        const rec = JSON.parse(singleRaw);
+        if (rec?.trip && (!rec.expiresAt || now < rec.expiresAt) && rec.trip.status === 'requested') {
+          return [rec.trip];
+        }
+      }
+      return [];
     } catch (e) {
       return [];
     }
@@ -320,15 +327,23 @@ class RealtimeHub {
   getActiveTripRequest() {
     if (typeof localStorage === 'undefined') return null;
     try {
-      const requests = this.getActiveTripRequests();
-      if (requests.length > 0) return requests[0];
       const raw = localStorage.getItem(ACTIVE_TRIP_KEY);
-      if (!raw) return null;
-      const record = JSON.parse(raw);
-      if (record && record.expiresAt && Date.now() < record.expiresAt && record.trip) {
-        return record.trip;
+      if (raw) {
+        const record = JSON.parse(raw);
+        if (record && record.expiresAt && Date.now() < record.expiresAt && record.trip && record.trip.status === 'requested') {
+          return record.trip;
+        }
+        localStorage.removeItem(ACTIVE_TRIP_KEY);
       }
-      localStorage.removeItem(ACTIVE_TRIP_KEY);
+      // Fallback to latest in list
+      const rawList = localStorage.getItem(ACTIVE_TRIP_REQUESTS_KEY);
+      if (rawList) {
+        const list = JSON.parse(rawList);
+        if (Array.isArray(list)) {
+          const valid = list.find(r => r?.trip && (!r.expiresAt || Date.now() < r.expiresAt) && r.trip.status === 'requested');
+          if (valid?.trip) return valid.trip;
+        }
+      }
     } catch (e) {}
     return null;
   }
@@ -345,7 +360,13 @@ class RealtimeHub {
 
   // Convenience helper methods
   requestRide(trip) {
+    if (!trip) return;
+    this._persistActiveTrip(trip);
     this.emit('TRIP_REQUESTED', trip);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('RIDINGO_SHOW_CUSTOM_DRIVER_NOTIFICATION', { detail: { trip } }));
+      window.dispatchEvent(new CustomEvent('RIDINGO_TRIP_REQUESTED', { detail: { trip } }));
+    }
   }
 
   acceptRide(tripId, driver, startOtp, driverCoords = null) {

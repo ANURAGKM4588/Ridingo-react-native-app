@@ -57,6 +57,7 @@ export const DEFAULT_USER = {
 };
 
 export const DEFAULT_DRIVER = {
+  id: 'DRV-10001',
   name: 'Ravi Kumar',
   phone: '+91 94471 23456',
   email: 'ravi.kumar@ridingo.partner',
@@ -115,10 +116,10 @@ export const INITIAL_UTX = [];
 
 export const INITIAL_UNOTES = [];
 
-// Automatic Clean-Slate Reset: Clears prior testing data from localStorage to ensure fresh new-user state
+// Automatic Clean-Slate Reset: Clears prior testing data from localStorage to ensure fresh genuine new-user state
 if (typeof window !== 'undefined') {
   try {
-    const CLEAN_SLATE_KEY = 'ridingo_clean_slate_fresh_v5';
+    const CLEAN_SLATE_KEY = 'ridingo_clean_slate_fresh_v7';
     if (!localStorage.getItem(CLEAN_SLATE_KEY)) {
       localStorage.removeItem('ridingo_cached_trips');
       localStorage.removeItem('ridingo_user_session');
@@ -131,6 +132,11 @@ if (typeof window !== 'undefined') {
       localStorage.removeItem('ridingo_has_onboarded');
       localStorage.removeItem('ridingo_user_notified_accepted_trips');
       localStorage.removeItem('ridingo_registered_users_registry');
+      localStorage.removeItem('ridingo_driver_balance');
+      localStorage.removeItem('ridingo_driver_tx');
+      localStorage.removeItem('ridingo_active_trip_requests_v1');
+      localStorage.removeItem('ridingo_active_trip_request');
+      localStorage.removeItem('ridingo_shared_trips');
       localStorage.setItem(CLEAN_SLATE_KEY, 'true');
     }
   } catch (_) {}
@@ -413,7 +419,10 @@ export function AppProvider({ children }) {
   const [incomingTripRequest, setIncomingTripRequest] = useState(null);
   const [driverBalance, setDriverBalance] = useState(() => {
     try {
-      const saved = localStorage.getItem('ridingo_driver_balance');
+      const savedDriver = localStorage.getItem('ridingo_driver_session');
+      const driverId = savedDriver ? JSON.parse(savedDriver)?.id : null;
+      if (!driverId) return 0;
+      const saved = localStorage.getItem(`ridingo_driver_balance_${driverId}`);
       return saved !== null && !isNaN(Number(saved)) ? Number(saved) : 0;
     } catch (_) {
       return 0;
@@ -421,24 +430,52 @@ export function AppProvider({ children }) {
   });
   const [driverTx, setDriverTx] = useState(() => {
     try {
-      const saved = localStorage.getItem('ridingo_driver_tx');
+      const savedDriver = localStorage.getItem('ridingo_driver_session');
+      const driverId = savedDriver ? JSON.parse(savedDriver)?.id : null;
+      if (!driverId) return [];
+      const saved = localStorage.getItem(`ridingo_driver_tx_${driverId}`);
       return saved ? JSON.parse(saved) : [];
     } catch (_) {
       return [];
     }
   });
 
+  // Re-hydrate driver balance & transactions on driver account switch or sign in/out
   useEffect(() => {
+    const driverId = driverPartner?.id;
+    if (!driverId) {
+      setDriverBalance(0);
+      setDriverTx([]);
+      return;
+    }
     try {
-      localStorage.setItem('ridingo_driver_balance', String(driverBalance));
-    } catch (_) {}
-  }, [driverBalance]);
+      const savedBal = localStorage.getItem(`ridingo_driver_balance_${driverId}`);
+      setDriverBalance(savedBal !== null && !isNaN(Number(savedBal)) ? Number(savedBal) : 0);
+      const savedTx = localStorage.getItem(`ridingo_driver_tx_${driverId}`);
+      setDriverTx(savedTx ? JSON.parse(savedTx) : []);
+    } catch (_) {
+      setDriverBalance(0);
+      setDriverTx([]);
+    }
+  }, [driverPartner?.id]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('ridingo_driver_tx', JSON.stringify(driverTx));
-    } catch (_) {}
-  }, [driverTx]);
+    const driverId = driverPartner?.id;
+    if (driverId) {
+      try {
+        localStorage.setItem(`ridingo_driver_balance_${driverId}`, String(driverBalance));
+      } catch (_) {}
+    }
+  }, [driverBalance, driverPartner?.id]);
+
+  useEffect(() => {
+    const driverId = driverPartner?.id;
+    if (driverId) {
+      try {
+        localStorage.setItem(`ridingo_driver_tx_${driverId}`, JSON.stringify(driverTx));
+      } catch (_) {}
+    }
+  }, [driverTx, driverPartner?.id]);
 
   const [toasts, setToasts] = useState([]);
   const [tripToCancel, setTripToCancel] = useState(null);
