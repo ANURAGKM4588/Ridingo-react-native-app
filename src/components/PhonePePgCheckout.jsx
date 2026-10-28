@@ -500,7 +500,7 @@ export default function PhonePePgCheckout() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", sans-serif',
+        fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
         animation: 'phonepePageSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
         transition: 'background-color 0.2s ease, color 0.2s ease'
       }}

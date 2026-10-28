@@ -256,7 +256,7 @@ const NaviLogo = () => (
       fontWeight: 900,
       color: '#0A192F',
       letterSpacing: '-0.4px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
     }}>
       navi
     </span>
@@ -280,7 +280,7 @@ const BhimLogo = () => (
       fontWeight: 900,
       color: '#FFFFFF',
       letterSpacing: '0.2px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
     }}>
       BHIM
     </span>
@@ -304,7 +304,7 @@ const SuperMoneyLogo = () => (
       fontWeight: 900,
       color: '#FFFFFF',
       letterSpacing: '-0.3px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
     }}>
       super
     </span>
@@ -328,7 +328,7 @@ const JupiterLogo = () => (
       fontWeight: 900,
       color: '#FFFFFF',
       letterSpacing: '-0.5px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
     }}>
       J
     </span>
@@ -352,7 +352,7 @@ const AmazonPayLogo = () => (
       fontWeight: 800,
       color: '#FF9900',
       letterSpacing: '-0.2px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
     }}>
       pay
     </span>
