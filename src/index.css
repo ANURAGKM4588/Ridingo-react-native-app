@@ -9160,7 +9160,7 @@ body.standalone-user .nav,
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
-  bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) - 5px)) !important;
+  bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 10px)) !important;
   transform: translateX(-50%) !important;
   width: calc(100% - 32px) !important;
   max-width: 440px !important;
@@ -9343,7 +9343,7 @@ body.standalone-app .nv.on .nv-i svg {
   body.standalone-app .nav,
   .nav {
     position: fixed !important;
-    bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) - 2px)) !important;
+    bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px)) !important;
     width: calc(100% - 32px) !important;
     max-width: 440px !important;
     height: 64px !important;
