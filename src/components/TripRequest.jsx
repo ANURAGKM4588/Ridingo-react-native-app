@@ -224,18 +224,20 @@ export default function TripRequest({
           </span>
         </div>
 
-        {/* Earnings Card */}
+        {/* Earnings Card with Vertical Partition Bar */}
         <section className="earnings-card">
-          <div>
+          <div className="earnings-left">
             <span className="eyebrow">DRIVER EARNINGS</span>
             <strong className="earnings-value">{driverEarnings}</strong>
           </div>
 
+          <span className="earnings-divider" aria-hidden="true" />
+
           <div className="pickup-distance">
             <span className="nav-icon">
-              <Icon name="navigation" size={14} />
+              <Icon name="navigation" size={15} />
             </span>
-            <span>{pickupDistance}</span>
+            <span className="distance-label">{pickupDistance}</span>
           </div>
         </section>
 
