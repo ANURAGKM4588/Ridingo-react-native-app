@@ -150,7 +150,9 @@ export default function AppSplashScreen({
     if (typeof isDarkProp === 'boolean') return isDarkProp;
     if (typeof window !== 'undefined') {
       try {
-        const pref = localStorage.getItem('ridingo_user_theme') || localStorage.getItem('ridingo_theme_pref') || 'light';
+        const pref = isDriver
+          ? (localStorage.getItem('ridingo_driver_theme') || 'light')
+          : (localStorage.getItem('ridingo_user_theme') || localStorage.getItem('ridingo_theme_pref') || 'light');
         if (pref === 'dark') return true;
         if (pref === 'light') return false;
         if (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {

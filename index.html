@@ -10,26 +10,7 @@
     <script>
       (function() {
         try {
-          var pref = localStorage.getItem('ridingo_user_theme') || localStorage.getItem('ridingo_theme_pref') || 'light';
-          var isDark = false;
-          if (pref === 'dark') {
-            isDark = true;
-          } else if (pref === 'light') {
-            isDark = false;
-          } else if (pref === 'system') {
-            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          } else {
-            isDark = false;
-          }
-          var themeVal = isDark ? 'dark' : 'light';
-          document.documentElement.setAttribute('data-theme', themeVal);
-          document.documentElement.style.colorScheme = themeVal;
-          var metaTheme = document.querySelector('meta[name="theme-color"]');
-          if (metaTheme) {
-            metaTheme.setAttribute('content', isDark ? '#0A0A0B' : '#FFFFFF');
-          }
-
-          // Initialize clean full-screen preview state
+          // Initialize clean full-screen preview state & detect active app first
           var port = (window.location.port || '');
           var search = (window.location.search || '').toLowerCase();
           var path = (window.location.pathname || '').toLowerCase();
@@ -49,6 +30,32 @@
           } else {
             document.documentElement.classList.add('standalone-user');
             document.documentElement.classList.remove('standalone-driver');
+          }
+
+          // Compute theme strictly according to active app (Driver App: ridingo_driver_theme; User App: untouched)
+          var pref;
+          if (isDriver) {
+            pref = localStorage.getItem('ridingo_driver_theme') || 'light';
+          } else {
+            pref = localStorage.getItem('ridingo_user_theme') || localStorage.getItem('ridingo_theme_pref') || 'light';
+          }
+
+          var isDark = false;
+          if (pref === 'dark') {
+            isDark = true;
+          } else if (pref === 'light') {
+            isDark = false;
+          } else if (pref === 'system') {
+            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          } else {
+            isDark = false;
+          }
+          var themeVal = isDark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', themeVal);
+          document.documentElement.style.colorScheme = themeVal;
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) {
+            metaTheme.setAttribute('content', isDark ? '#0A0A0B' : '#FFFFFF');
           }
         } catch (e) {}
       })();
@@ -250,6 +257,22 @@
               if (document.body) {
                 document.body.classList.add('standalone-driver');
                 document.body.classList.remove('standalone-user');
+              }
+              // Strictly ensure driver theme is synchronized for driver app splash
+              var dPref = localStorage.getItem('ridingo_driver_theme') || 'light';
+              var isDriverDark = false;
+              if (dPref === 'dark') {
+                isDriverDark = true;
+              } else if (dPref === 'light') {
+                isDriverDark = false;
+              } else if (dPref === 'system') {
+                isDriverDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+              }
+              var dThemeVal = isDriverDark ? 'dark' : 'light';
+              document.documentElement.setAttribute('data-theme', dThemeVal);
+              document.documentElement.style.colorScheme = dThemeVal;
+              if (document.body) {
+                document.body.setAttribute('data-theme', dThemeVal);
               }
             } else {
               document.documentElement.setAttribute('data-app', 'user');

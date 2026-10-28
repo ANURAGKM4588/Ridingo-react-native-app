@@ -103,7 +103,7 @@ function compileStandaloneHtml(appType, appName) {
             isDark = false;
           } else {
             var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            isDark = ('${appType}' === 'driver') ? true : sysDark;
+            isDark = ('${appType}' === 'driver') ? false : sysDark;
           }
           var bgColor = isDark ? '#0D0E12' : '#F2F2F7';
           var barStyle = isDark ? 'black-translucent' : 'default';

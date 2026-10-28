@@ -17,7 +17,7 @@
     <script>
       (function() {
         try {
-          var pref = localStorage.getItem('ridingo_user_theme') || localStorage.getItem('ridingo_theme_pref') || 'light';
+          var pref = localStorage.getItem('ridingo_driver_theme') || 'light';
           var isDark = false;
           if (pref === 'dark') {
             isDark = true;
@@ -99,7 +99,7 @@
             isDark = false;
           } else {
             var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            isDark = ('driver' === 'driver') ? true : sysDark;
+            isDark = ('driver' === 'driver') ? false : sysDark;
           }
           var bgColor = isDark ? '#0D0E12' : '#F2F2F7';
           var barStyle = isDark ? 'black-translucent' : 'default';
