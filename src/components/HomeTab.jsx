@@ -2805,255 +2805,7 @@ Live GPS Tracking: ${trackUrl}`;
         </div>
       </div>
 
-{/* =========================================================
-          RUNNING OFFER BANNERS (Landscape Rounded Rectangle)
-          Features professional branding design, swipe/drag gesture support,
-          direction-aware modern app sliding animation, and direct category navigation.
-          ========================================================= */}
-      <div
-        className="offer-banners-wrap stagger-2"
-        style={{
-          marginTop: '12px',
-          marginBottom: '16px',
-          position: 'relative',
-          userSelect: 'none'
-        }}
-        onMouseEnter={() => setBannerAutoPlay(false)}
-        onMouseLeave={() => setBannerAutoPlay(true)}
-        onTouchStart={() => setBannerAutoPlay(false)}
-        onTouchEnd={() => setBannerAutoPlay(true)}
-      >
-        <div
-          style={{
-            position: 'relative',
-            borderRadius: '20px',
-            overflow: 'hidden',
-            aspectRatio: '2.5 / 1',
-            minHeight: '144px',
-            maxHeight: '260px',
-            width: '100%',
-            boxShadow: 'none',
-            border: 'none',
-            background: 'transparent',
-            cursor: 'grab'
-          }}
-        >
-          <AnimatePresence initial={false} custom={bannerDirection} mode="popLayout">
-            <motion.div
-              key={bannerPage}
-              custom={bannerDirection}
-              variants={{
-                enter: (direction) => ({
-                  x: direction > 0 ? '100%' : '-100%',
-                  opacity: 0,
-                  scale: 0.96
-                }),
-                center: {
-                  zIndex: 1,
-                  x: 0,
-                  opacity: 1,
-                  scale: 1,
-                  transition: {
-                    x: { type: 'spring', stiffness: 340, damping: 32, mass: 0.8 },
-                    opacity: { duration: 0.22, ease: 'easeOut' },
-                    scale: { type: 'spring', stiffness: 340, damping: 32, mass: 0.8 }
-                  }
-                },
-                exit: (direction) => ({
-                  zIndex: 0,
-                  x: direction < 0 ? '100%' : '-100%',
-                  opacity: 0,
-                  scale: 0.96,
-                  transition: {
-                    x: { type: 'spring', stiffness: 340, damping: 32, mass: 0.8 },
-                    opacity: { duration: 0.2, ease: 'easeIn' },
-                    scale: { duration: 0.2 }
-                  }
-                })
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.25}
-              onDragStart={() => {
-                isDraggingBannerRef.current = true;
-              }}
-              onDragEnd={(e, { offset, velocity }) => {
-                setTimeout(() => {
-                  isDraggingBannerRef.current = false;
-                }, 100);
-                const swipeThreshold = 25;
-                const swipeVelocity = 150;
-                if (offset.x < -swipeThreshold || velocity.x < -swipeVelocity) {
-                  paginateBanner(1);
-                } else if (offset.x > swipeThreshold || velocity.x > swipeVelocity) {
-                  paginateBanner(-1);
-                }
-              }}
-              onClick={() => {
-                if (isDraggingBannerRef.current) return;
-                if (currentBanner.promoCode && addToast) {
-                  addToast(`Offer applied: ${currentBanner.promoCode}`, 'check');
-                }
-                openBooking(currentBanner.category || 'hourly', currentBanner.customDestination || null);
-              }}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: '20px',
-                overflow: 'hidden',
-                touchAction: 'pan-y',
-                cursor: 'pointer',
-                background: 'transparent',
-                border: 'none',
-                boxShadow: 'none'
-              }}
-            >
-              {(currentBanner.imageMobile || currentBanner.imageTablet || currentBanner.imageUrl) ? (
-                /* ========================================================
-                   FULLY DESIGNED BANNER SLIDE (Image-First pure graphic)
-                   No black stroke, no dark scrim, pure uploaded banner asset
-                   ======================================================== */
-                <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '20px', overflow: 'hidden' }}>
-                  <picture style={{ width: '100%', height: '100%', display: 'block' }}>
-                    {currentBanner.imageTablet && (
-                      <source media="(min-width: 640px)" srcSet={currentBanner.imageTablet} />
-                    )}
-                    <img
-                      src={currentBanner.imageMobile || currentBanner.imageUrl || currentBanner.imageTablet}
-                      alt={currentBanner.serviceName || 'Special Offer Banner'}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
-                        borderRadius: '20px',
-                        border: 'none',
-                        outline: 'none'
-                      }}
-                    />
-                  </picture>
-
-                  {/* Optional CTA Button on the Image ONLY when explicitly enabled */}
-                  {currentBanner.showCta && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '12px',
-                        right: '14px',
-                        zIndex: 2,
-                        pointerEvents: 'none'
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '11.5px',
-                          fontWeight: 800,
-                          color: currentBanner.ctaTextColor || '#000000',
-                          background: currentBanner.ctaBgColor || '#FFFFFF',
-                          padding: '5px 14px',
-                          borderRadius: '999px',
-                          boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        <span>{currentBanner.cta || 'Book Now'}</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M5 12h14" />
-                          <path d="m13 6 6 6-6 6" />
-                        </svg>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Fallback layout when no image is uploaded */
-                <div
-                  style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '100%',
-                    padding: '16px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '9px', fontWeight: 850, color: 'rgba(255, 255, 255, 0.75)', textTransform: 'uppercase' }}>
-                        {currentBanner.brandTag || 'RIDINGO SPECIAL'}
-                      </span>
-                      <span style={{ color: 'rgba(255, 255, 255, 0.35)', fontSize: '10px' }}>•</span>
-                      <span style={{ background: currentBanner.tagBg || '#10B981', color: '#FFFFFF', fontSize: '9.5px', fontWeight: 900, padding: '2.5px 8px', borderRadius: '999px' }}>
-                        {currentBanner.tag || 'SPECIAL OFFER'}
-                      </span>
-                    </div>
-
-                    <h4 style={{ margin: '0 0 2px 0', fontSize: '15px', fontWeight: 800, color: '#FFFFFF', lineHeight: 1.25 }}>
-                      {currentBanner.headline}
-                    </h4>
-
-                    <p style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.82)', lineHeight: 1.3 }}>
-                      {currentBanner.sub}
-                    </p>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: currentBanner.ctaTextColor || '#000000', background: currentBanner.ctaBgColor || '#FFFFFF', padding: '4.5px 12px', borderRadius: '999px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                        {currentBanner.cta || 'Book Now'} ➔
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ width: '58px', height: '58px', borderRadius: '18px', background: 'rgba(255, 255, 255, 0.12)', backdropFilter: 'blur(12px)', border: '1.5px solid rgba(255, 255, 255, 0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', flexShrink: 0, marginLeft: '14px', zIndex: 1 }}>
-                    <Icon name={currentBanner.icon || 'star'} size={28} />
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Carousel Dots Indicator: Interactive with dynamic active width */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '9px' }}>
-          {offerBanners.map((banner, idx) => {
-            const isActive = idx === activeBannerIdx;
-            return (
-              <button
-                key={banner.id}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const dir = idx > activeBannerIdx ? 1 : -1;
-                  setBannerPage([idx, dir]);
-                }}
-                aria-label={`Go to ${banner.tag || banner.headline}`}
-                style={{
-                  width: isActive ? '22px' : '6px',
-                  height: '5px',
-                  borderRadius: '999px',
-                  background: isActive ? 'var(--solid)' : 'var(--bar)',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {availableTrips.length > 0 && (
+{availableTrips.length > 0 && (
         <div className="active-trips-section stagger-1" style={{ marginTop: '14px', marginBottom: '20px' }}>
           {(() => {
             const liveTrips = availableTrips.filter(t => t.status === 'inprogress');
@@ -3807,7 +3559,253 @@ Live GPS Tracking: ${trackUrl}`;
         </div>
       )}
 
+      {/* =========================================================
+          RUNNING OFFER BANNERS (Landscape Rounded Rectangle)
+          Features professional branding design, swipe/drag gesture support,
+          direction-aware modern app sliding animation, and direct category navigation.
+          ========================================================= */}
+      <div
+        className="offer-banners-wrap stagger-2"
+        style={{
+          marginTop: '12px',
+          marginBottom: '16px',
+          position: 'relative',
+          userSelect: 'none'
+        }}
+        onMouseEnter={() => setBannerAutoPlay(false)}
+        onMouseLeave={() => setBannerAutoPlay(true)}
+        onTouchStart={() => setBannerAutoPlay(false)}
+        onTouchEnd={() => setBannerAutoPlay(true)}
+      >
+        <div
+          style={{
+            position: 'relative',
+            borderRadius: '20px',
+            overflow: 'hidden',
+            aspectRatio: '2.5 / 1',
+            minHeight: '144px',
+            maxHeight: '260px',
+            width: '100%',
+            boxShadow: 'none',
+            border: 'none',
+            background: 'transparent',
+            cursor: 'grab'
+          }}
+        >
+          <AnimatePresence initial={false} custom={bannerDirection} mode="popLayout">
+            <motion.div
+              key={bannerPage}
+              custom={bannerDirection}
+              variants={{
+                enter: (direction) => ({
+                  x: direction > 0 ? '100%' : '-100%',
+                  opacity: 0,
+                  scale: 0.96
+                }),
+                center: {
+                  zIndex: 1,
+                  x: 0,
+                  opacity: 1,
+                  scale: 1,
+                  transition: {
+                    x: { type: 'spring', stiffness: 340, damping: 32, mass: 0.8 },
+                    opacity: { duration: 0.22, ease: 'easeOut' },
+                    scale: { type: 'spring', stiffness: 340, damping: 32, mass: 0.8 }
+                  }
+                },
+                exit: (direction) => ({
+                  zIndex: 0,
+                  x: direction < 0 ? '100%' : '-100%',
+                  opacity: 0,
+                  scale: 0.96,
+                  transition: {
+                    x: { type: 'spring', stiffness: 340, damping: 32, mass: 0.8 },
+                    opacity: { duration: 0.2, ease: 'easeIn' },
+                    scale: { duration: 0.2 }
+                  }
+                })
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.25}
+              onDragStart={() => {
+                isDraggingBannerRef.current = true;
+              }}
+              onDragEnd={(e, { offset, velocity }) => {
+                setTimeout(() => {
+                  isDraggingBannerRef.current = false;
+                }, 100);
+                const swipeThreshold = 25;
+                const swipeVelocity = 150;
+                if (offset.x < -swipeThreshold || velocity.x < -swipeVelocity) {
+                  paginateBanner(1);
+                } else if (offset.x > swipeThreshold || velocity.x > swipeVelocity) {
+                  paginateBanner(-1);
+                }
+              }}
+              onClick={() => {
+                if (isDraggingBannerRef.current) return;
+                if (currentBanner.promoCode && addToast) {
+                  addToast(`Offer applied: ${currentBanner.promoCode}`, 'check');
+                }
+                openBooking(currentBanner.category || 'hourly', currentBanner.customDestination || null);
+              }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: '20px',
+                overflow: 'hidden',
+                touchAction: 'pan-y',
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none'
+              }}
+            >
+              {(currentBanner.imageMobile || currentBanner.imageTablet || currentBanner.imageUrl) ? (
+                /* ========================================================
+                   FULLY DESIGNED BANNER SLIDE (Image-First pure graphic)
+                   No black stroke, no dark scrim, pure uploaded banner asset
+                   ======================================================== */
+                <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '20px', overflow: 'hidden' }}>
+                  <picture style={{ width: '100%', height: '100%', display: 'block' }}>
+                    {currentBanner.imageTablet && (
+                      <source media="(min-width: 640px)" srcSet={currentBanner.imageTablet} />
+                    )}
+                    <img
+                      src={currentBanner.imageMobile || currentBanner.imageUrl || currentBanner.imageTablet}
+                      alt={currentBanner.serviceName || 'Special Offer Banner'}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block',
+                        borderRadius: '20px',
+                        border: 'none',
+                        outline: 'none'
+                      }}
+                    />
+                  </picture>
 
+                  {/* Optional CTA Button on the Image ONLY when explicitly enabled */}
+                  {currentBanner.showCta && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        right: '14px',
+                        zIndex: 2,
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '11.5px',
+                          fontWeight: 800,
+                          color: currentBanner.ctaTextColor || '#000000',
+                          background: currentBanner.ctaBgColor || '#FFFFFF',
+                          padding: '5px 14px',
+                          borderRadius: '999px',
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        <span>{currentBanner.cta || 'Book Now'}</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 12h14" />
+                          <path d="m13 6 6 6-6 6" />
+                        </svg>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Fallback layout when no image is uploaded */
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '9px', fontWeight: 850, color: 'rgba(255, 255, 255, 0.75)', textTransform: 'uppercase' }}>
+                        {currentBanner.brandTag || 'RIDINGO SPECIAL'}
+                      </span>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.35)', fontSize: '10px' }}>•</span>
+                      <span style={{ background: currentBanner.tagBg || '#10B981', color: '#FFFFFF', fontSize: '9.5px', fontWeight: 900, padding: '2.5px 8px', borderRadius: '999px' }}>
+                        {currentBanner.tag || 'SPECIAL OFFER'}
+                      </span>
+                    </div>
+
+                    <h4 style={{ margin: '0 0 2px 0', fontSize: '15px', fontWeight: 800, color: '#FFFFFF', lineHeight: 1.25 }}>
+                      {currentBanner.headline}
+                    </h4>
+
+                    <p style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.82)', lineHeight: 1.3 }}>
+                      {currentBanner.sub}
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: currentBanner.ctaTextColor || '#000000', background: currentBanner.ctaBgColor || '#FFFFFF', padding: '4.5px 12px', borderRadius: '999px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        {currentBanner.cta || 'Book Now'} ➔
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ width: '58px', height: '58px', borderRadius: '18px', background: 'rgba(255, 255, 255, 0.12)', backdropFilter: 'blur(12px)', border: '1.5px solid rgba(255, 255, 255, 0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', flexShrink: 0, marginLeft: '14px', zIndex: 1 }}>
+                    <Icon name={currentBanner.icon || 'star'} size={28} />
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Carousel Dots Indicator: Interactive with dynamic active width */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '9px' }}>
+          {offerBanners.map((banner, idx) => {
+            const isActive = idx === activeBannerIdx;
+            return (
+              <button
+                key={banner.id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const dir = idx > activeBannerIdx ? 1 : -1;
+                  setBannerPage([idx, dir]);
+                }}
+                aria-label={`Go to ${banner.tag || banner.headline}`}
+                style={{
+                  width: isActive ? '22px' : '6px',
+                  height: '5px',
+                  borderRadius: '999px',
+                  background: isActive ? 'var(--solid)' : 'var(--bar)',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
 
       {/* Popular Destinations Quick Book - CURATED SWIPE SECTION */}
       <div className="sec stagger-5" style={{ marginTop: '22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>

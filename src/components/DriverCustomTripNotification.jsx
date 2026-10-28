@@ -5,58 +5,82 @@ import { playNativeAlertChime, stopActiveTone } from '../services/pushNotificati
 
 /**
  * DriverCustomTripNotification:
- * Modern Minimal Slide-Up Popup Modal for Incoming Trip Requests.
- * 
- * Features:
- * - Ultra-clean, minimal design with smooth countdown progress bar.
- * - Clear hero fare presentation with advance amount badge.
- * - Sleek vertical route timeline connecting pickup and drop locations.
- * - High-contrast modern action buttons (minimalist Decline + high-visibility Accept).
- * - 20s auto-hide countdown timer with sound chime & haptic feedback.
+ * Redesigned Incoming Trip Request Popup matching the reference design exactly.
+ * Supports both Light and Dark themes with 100% faithful styling.
+ *
+ * @param {Object} props
+ * @param {Object} props.trip - Incoming trip request data
+ * @param {Function} props.onAccept - Accept trip callback
+ * @param {Function} props.onDecline - Decline trip callback
+ * @param {Function} props.onDismiss - Minimize/dismiss popup callback
+ * @param {Function} props.onExpand - Expand trip details callback
+ * @param {'light'|'dark'} [props.themeOverride] - Optional manual theme override
  */
-export default function DriverCustomTripNotification({ trip, onAccept, onDecline, onDismiss, onExpand }) {
-  const [countdown, setCountdown] = useState(20);
+export default function DriverCustomTripNotification({
+  trip,
+  onAccept,
+  onDecline,
+  onDismiss,
+  onExpand,
+  themeOverride
+}) {
+  const [countdown, setCountdown] = useState(15);
   const [isAccepting, setIsAccepting] = useState(false);
-  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+
+  // Determine active theme strictly aligned with Driver App theme preference
+  const computeIsDark = () => {
+    if (themeOverride === 'dark') return true;
+    if (themeOverride === 'light') return false;
+    try {
+      const driverPref = localStorage.getItem('ridingo_driver_theme') || 'light';
+      if (driverPref === 'dark') return true;
+      if (driverPref === 'light') return false;
+      if (driverPref === 'system' && typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return true;
+      }
+    } catch (_) {}
     if (typeof document !== 'undefined') {
-      const docTheme = document.documentElement.getAttribute('data-theme');
-      if (docTheme) return docTheme === 'dark';
-    }
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const docTheme = document.documentElement.getAttribute('data-theme') || document.body?.getAttribute('data-theme');
+      if (docTheme === 'dark') return true;
+      if (docTheme === 'light') return false;
     }
     return false;
-  });
+  };
 
-  // Track dynamic theme changes
+  const [isDarkTheme, setIsDarkTheme] = useState(computeIsDark);
+
+  // Synchronize theme changes in real-time
   useEffect(() => {
-    const checkTheme = () => {
-      const docTheme = document.documentElement.getAttribute('data-theme');
-      if (docTheme) {
-        setIsDarkTheme(docTheme === 'dark');
-      } else if (window.matchMedia) {
-        setIsDarkTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
-      }
+    const handleThemeChange = () => {
+      setIsDarkTheme(computeIsDark());
     };
 
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    handleThemeChange();
+
+    let observer = null;
+    if (typeof document !== 'undefined') {
+      observer = new MutationObserver(handleThemeChange);
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+      if (document.body) {
+        observer.observe(document.body, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+      }
+    }
 
     let mediaQuery = null;
-    if (window.matchMedia) {
+    if (typeof window !== 'undefined' && window.matchMedia) {
       mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      mediaQuery.addEventListener('change', checkTheme);
+      mediaQuery.addEventListener?.('change', handleThemeChange);
     }
 
     return () => {
-      observer.disconnect();
-      if (mediaQuery) mediaQuery.removeEventListener('change', checkTheme);
+      if (observer) observer.disconnect();
+      if (mediaQuery) mediaQuery.removeEventListener?.('change', handleThemeChange);
     };
-  }, []);
+  }, [themeOverride]);
 
-  // Audio chime & 20s Countdown Timer with auto-hide
+  // Audio chime & 15s Countdown Timer with auto-hide
   useEffect(() => {
-    setCountdown(20);
+    setCountdown(15);
     try {
       playNativeAlertChime('alert');
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -88,33 +112,31 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
 
   if (!trip) return null;
 
-  const fare = Number(trip.fare) || 600;
+  const fare = Number(trip.fare) || 750;
   const advance = Number(trip.advance) || Math.round(fare * 0.3);
-  
+
   // Locations cleanly extracted up to the first comma only
   const pickup = getLocationUpToFirstComma(trip.pickup || trip.from, 'Pickup Location');
   const drop = getLocationUpToFirstComma(trip.drop_loc || trip.drop || trip.to, 'Destination');
-  const distance = trip.distanceText || trip.distance || '12.4 km';
-  const duration = trip.durationText || trip.duration || '28 mins';
-  const time = trip.time || trip.scheduled_time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const distance = trip.distanceText || trip.distance || '4 km';
+  const duration = trip.durationText || trip.duration || '15 mins';
 
-  const progressPct = Math.max(0, Math.min(100, (countdown / 20) * 100));
-  const isUrgent = countdown <= 6;
-  const timerBarColor = isUrgent ? '#EF4444' : countdown <= 12 ? '#F59E0B' : '#16A34A';
-
-  const theme = {
-    bg: isDarkTheme ? '#12141A' : '#FFFFFF',
-    textPrimary: isDarkTheme ? '#F8FAFC' : '#0F172A',
-    textSecondary: isDarkTheme ? '#94A3B8' : '#64748B',
-    border: isDarkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-    fieldBg: isDarkTheme ? '#1A1D24' : '#F8FAFC',
-    cardBorder: isDarkTheme ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
-    pillBorder: isDarkTheme ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.08)',
-    handle: isDarkTheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
-    shadow: isDarkTheme
-      ? '0 -20px 50px rgba(0, 0, 0, 0.9), 0 0 1px rgba(255, 255, 255, 0.1)'
-      : '0 -20px 50px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.05)'
+  // Format time (e.g., "04:41 PM")
+  const formatTime = () => {
+    if (trip.time) return trip.time;
+    if (trip.scheduled_time) return trip.scheduled_time;
+    try {
+      const ts = trip.when_ts || Date.now();
+      return new Date(ts).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (_) {
+      return '04:41 PM';
+    }
   };
+  const time = formatTime();
 
   return (
     <div
@@ -123,12 +145,13 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
         position: 'fixed',
         inset: 0,
         zIndex: 100010,
-        background: 'rgba(0, 0, 0, 0.52)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
+        padding: '0 12px max(14px, env(safe-area-inset-bottom, 14px))',
         animation: 'fadeIn 0.2s ease-out'
       }}
       onClick={() => {
@@ -140,127 +163,95 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
       }}
     >
       <div
-        className="driver-custom-bottom-popup"
+        className="driver-trip-request-popup-card"
         style={{
           width: '100%',
-          maxWidth: '460px',
-          background: theme.bg,
-          borderTop: theme.border,
-          borderTopLeftRadius: '28px',
-          borderTopRightRadius: '28px',
-          padding: '0 20px calc(20px + env(safe-area-inset-bottom, 12px))',
-          boxShadow: theme.shadow,
+          maxWidth: '430px',
+          background: isDarkTheme ? '#111317' : '#FFFFFF',
+          borderRadius: '28px',
+          padding: '12px 16px 16px',
+          boxShadow: isDarkTheme
+            ? '0 -16px 48px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.08)'
+            : '0 -12px 40px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.06)',
+          border: isDarkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.05)',
           boxSizing: 'border-box',
-          color: theme.textPrimary,
           fontFamily: 'var(--font-body, "Manrope", sans-serif)',
           userSelect: 'none',
           position: 'relative',
-          overflow: 'hidden',
-          animation: 'slideUpFromBottom 0.28s cubic-bezier(0.16, 1, 0.3, 1)'
+          animation: 'bottomSheetPopIn 0.26s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sleek Top Countdown Progress Line */}
+        {/* Subtle Top Grab Handle */}
         <div
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '3.5px',
-            background: isDarkTheme ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)',
-            overflow: 'hidden'
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${progressPct}%`,
-              background: timerBarColor,
-              transition: 'width 1s linear, background-color 0.3s ease',
-              borderRadius: '0 2px 2px 0'
-            }}
-          />
-        </div>
-
-        {/* Minimal Centered Drag Indicator */}
-        <div
-          style={{
-            width: '38px',
+            width: '40px',
             height: '4px',
             borderRadius: '999px',
-            background: theme.handle,
-            margin: '12px auto 14px',
-            cursor: 'grab'
+            background: isDarkTheme ? '#374151' : '#D1D5DB',
+            margin: '0 auto 12px'
           }}
         />
 
-        {/* Header: Minimal Badge + Countdown Timer + Close */}
+        {/* Header Row: Badge on Left, Timer & Close X on Right */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '14px'
+            marginBottom: '12px'
           }}
         >
-          {/* Status Pill with Pulsing Live Dot */}
+          {/* Badge: ● NEW RIDE REQUEST */}
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '7px',
-              padding: '4px 10px',
+              gap: '8px',
+              padding: '6px 14px',
               borderRadius: '999px',
-              background: isDarkTheme ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9',
-              border: theme.pillBorder
+              background: isDarkTheme ? '#0A2518' : '#E8F8F0',
+              color: isDarkTheme ? '#34D399' : '#047857',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase'
             }}
           >
             <span
               style={{
-                width: '7px',
-                height: '7px',
+                width: '8px',
+                height: '8px',
                 borderRadius: '50%',
-                background: '#16A34A',
-                boxShadow: '0 0 8px rgba(22, 163, 74, 0.6)',
+                background: '#10B981',
                 display: 'inline-block',
-                animation: 'pulse 1.8s infinite'
+                flexShrink: 0
               }}
             />
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 750,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: theme.textPrimary
-              }}
-            >
-              New Ride Request
-            </span>
+            <span>NEW RIDE REQUEST</span>
           </div>
 
-          {/* Right Action: Countdown Tag & Minimal Dismiss Button */}
+          {/* Right Group: 15s Timer Pill + Circle Close Button */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
+            {/* Countdown Timer Pill */}
+            <div
               style={{
-                fontSize: '11.5px',
-                fontWeight: 750,
-                padding: '3px 9px',
-                borderRadius: '999px',
-                background: isUrgent ? 'rgba(239, 68, 68, 0.12)' : isDarkTheme ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9',
-                color: isUrgent ? '#EF4444' : theme.textSecondary,
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '-0.01em',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '999px',
+                background: isDarkTheme ? '#1F242D' : '#F3F4F6',
+                color: isDarkTheme ? '#E5E7EB' : '#374151',
+                fontSize: '12.5px',
+                fontWeight: 700
               }}
             >
-              <Icon name="clock" size={12} />
+              <Icon name="clock" size={13.5} />
               <span>{countdown}s</span>
-            </span>
+            </div>
 
+            {/* Circular Close Button (X) */}
             <button
               type="button"
               onClick={() => {
@@ -271,96 +262,105 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
                 }
               }}
               style={{
-                width: '28px',
-                height: '28px',
+                width: '32px',
+                height: '32px',
                 borderRadius: '50%',
-                background: isDarkTheme ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9',
+                background: isDarkTheme ? '#1F242D' : '#F3F4F6',
+                color: isDarkTheme ? '#9CA3AF' : '#4B5563',
                 border: 'none',
-                color: theme.textSecondary,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
                 padding: 0,
-                transition: 'transform 0.15s ease, background 0.15s ease'
+                transition: 'opacity 0.15s ease'
               }}
-              aria-label="Dismiss Notification"
+              aria-label="Close"
             >
               <Icon name="x" size={13} />
             </button>
           </div>
         </div>
 
-        {/* Hero Card: Fare Amount & Timing Details */}
+        {/* Section 1: Estimated Fare Card */}
         <div
           onClick={() => {
             if (onExpand) onExpand(trip);
           }}
           style={{
-            cursor: 'pointer',
-            padding: '14px 16px',
+            background: isDarkTheme ? '#181B22' : '#F5F6F8',
             borderRadius: '18px',
-            background: theme.fieldBg,
-            border: theme.cardBorder,
+            padding: '14px 16px',
             marginBottom: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            transition: 'background 0.15s ease'
+            cursor: 'pointer'
           }}
         >
-          <div>
+          {/* Top Row: Label & Advance Badge */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '4px'
+            }}
+          >
             <span
               style={{
-                fontSize: '10.5px',
-                fontWeight: 700,
+                fontSize: '11px',
+                fontWeight: 800,
                 textTransform: 'uppercase',
-                color: theme.textSecondary,
-                letterSpacing: '0.05em',
-                display: 'block'
+                color: isDarkTheme ? '#9CA3AF' : '#6B7280',
+                letterSpacing: '0.04em'
               }}
             >
-              Estimated Fare
+              ESTIMATED FARE
             </span>
+
+            {/* Advance Badge */}
             <div
               style={{
-                fontSize: '28px',
-                fontWeight: 900,
-                color: '#16A34A',
-                letterSpacing: '-0.03em',
-                lineHeight: 1.15,
-                marginTop: '2px'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: '#FFC70A',
+                color: '#000000',
+                borderRadius: '8px',
+                padding: '4px 9px',
+                fontSize: '11.5px',
+                fontWeight: 800,
+                letterSpacing: '-0.01em'
+              }}
+            >
+              <Icon name="wallet" size={13.5} />
+              <span>₹{advance} Advance</span>
+            </div>
+          </div>
+
+          {/* Bottom Row: Large Green Fare & Time / Distance Subtitle */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between'
+            }}
+          >
+            <div
+              style={{
+                fontSize: '32px',
+                fontWeight: 800,
+                color: '#00C265',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1
               }}
             >
               ₹{fare}
             </div>
-          </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '11px',
-                fontWeight: 800,
-                padding: '3px 8px',
-                borderRadius: '8px',
-                background: '#FFC70A',
-                color: '#0F172A',
-                letterSpacing: '-0.01em',
-                boxShadow: '0 2px 6px rgba(255, 199, 10, 0.25)'
-              }}
-            >
-              ₹{advance} Advance
-            </span>
             <div
               style={{
-                fontSize: '11.5px',
+                fontSize: '12px',
                 fontWeight: 600,
-                color: theme.textSecondary,
-                marginTop: '5px',
-                letterSpacing: '-0.01em'
+                color: isDarkTheme ? '#9CA3AF' : '#4B5563'
               }}
             >
               {time} · {distance} ({duration})
@@ -368,137 +368,173 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
           </div>
         </div>
 
-        {/* Modern Minimal Route Timeline */}
+        {/* Section 2: Locations & Route Card */}
         <div
           onClick={() => {
             if (onExpand) onExpand(trip);
           }}
           style={{
-            cursor: 'pointer',
-            background: theme.fieldBg,
-            border: theme.cardBorder,
+            background: isDarkTheme ? '#181B22' : '#F5F6F8',
             borderRadius: '18px',
-            padding: '14px 16px',
-            marginBottom: '16px'
+            padding: '16px',
+            marginBottom: '16px',
+            cursor: 'pointer'
           }}
         >
           <div style={{ display: 'flex', gap: '14px', alignItems: 'stretch' }}>
-            {/* Minimal SVG Route Connector */}
+            {/* Left Vertical Timeline Indicator */}
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '4px 0',
-                width: '12px',
+                padding: '5px 0',
+                width: '10px',
                 flexShrink: 0
               }}
             >
-              <div
+              <span
                 style={{
                   width: '9px',
                   height: '9px',
                   borderRadius: '50%',
-                  background: '#16A34A',
-                  boxShadow: '0 0 6px rgba(22, 163, 74, 0.5)'
+                  background: '#10B981',
+                  display: 'block'
                 }}
               />
               <div
                 style={{
-                  width: '2px',
-                  flex: 1,
-                  background: isDarkTheme ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
+                  width: '0',
+                  height: '24px',
+                  borderLeft: isDarkTheme ? '2px dashed #374151' : '2px dashed #CBD5E1',
                   margin: '4px 0'
                 }}
               />
-              <div
+              <span
                 style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '2px',
+                  width: '9px',
+                  height: '9px',
+                  borderRadius: '50%',
                   background: '#EF4444',
-                  boxShadow: '0 0 6px rgba(239, 68, 68, 0.5)'
+                  display: 'block'
                 }}
               />
             </div>
 
-            {/* Location Names */}
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Pickup Location */}
-              <div style={{ minWidth: 0 }}>
-                <span
-                  style={{
-                    fontSize: '9.5px',
-                    fontWeight: 750,
-                    textTransform: 'uppercase',
-                    color: theme.textSecondary,
-                    letterSpacing: '0.06em',
-                    display: 'block'
-                  }}
-                >
-                  Pickup Location
-                </span>
-                <div
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 750,
-                    color: theme.textPrimary,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    marginTop: '1px'
-                  }}
-                  title={pickup}
-                >
-                  {pickup}
+            {/* Location Details Column */}
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+              }}
+            >
+              {/* Pickup Location Row */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                  <Icon name="pin" size={17} color={isDarkTheme ? '#E5E7EB' : '#111827'} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <span
+                      style={{
+                        fontSize: '10.5px',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        color: isDarkTheme ? '#9CA3AF' : '#6B7280',
+                        letterSpacing: '0.04em',
+                        display: 'block',
+                        lineHeight: 1.2
+                      }}
+                    >
+                      PICKUP LOCATION
+                    </span>
+                    <div
+                      style={{
+                        fontSize: '14.5px',
+                        fontWeight: 800,
+                        color: isDarkTheme ? '#FFFFFF' : '#111827',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        marginTop: '2px',
+                        lineHeight: 1.25
+                      }}
+                      title={pickup}
+                    >
+                      {pickup}
+                    </div>
+                  </div>
                 </div>
+                <Icon name="chevronRight" size={15} color={isDarkTheme ? '#6B7280' : '#9CA3AF'} />
               </div>
 
-              {/* Destination Location */}
-              <div style={{ minWidth: 0 }}>
-                <span
-                  style={{
-                    fontSize: '9.5px',
-                    fontWeight: 750,
-                    textTransform: 'uppercase',
-                    color: theme.textSecondary,
-                    letterSpacing: '0.06em',
-                    display: 'block'
-                  }}
-                >
-                  Destination
-                </span>
-                <div
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 750,
-                    color: theme.textPrimary,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    marginTop: '1px'
-                  }}
-                  title={drop}
-                >
-                  {drop}
+              {/* Destination Location Row */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                  <Icon name="pin" size={17} color={isDarkTheme ? '#E5E7EB' : '#111827'} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <span
+                      style={{
+                        fontSize: '10.5px',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        color: isDarkTheme ? '#9CA3AF' : '#6B7280',
+                        letterSpacing: '0.04em',
+                        display: 'block',
+                        lineHeight: 1.2
+                      }}
+                    >
+                      DESTINATION
+                    </span>
+                    <div
+                      style={{
+                        fontSize: '14.5px',
+                        fontWeight: 800,
+                        color: isDarkTheme ? '#FFFFFF' : '#111827',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        marginTop: '2px',
+                        lineHeight: 1.25
+                      }}
+                      title={drop}
+                    >
+                      {drop}
+                    </div>
+                  </div>
                 </div>
+                <Icon name="chevronRight" size={15} color={isDarkTheme ? '#6B7280' : '#9CA3AF'} />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Minimal High-End Action Buttons */}
+        {/* Section 3: Action Buttons (Decline & Accept) */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1.6fr',
-            gap: '10px',
-            width: '100%',
-            boxSizing: 'border-box'
+            gridTemplateColumns: '1fr 1.35fr',
+            gap: '12px',
+            width: '100%'
           }}
         >
-          {/* Minimalist Decline Button */}
+          {/* Decline Button */}
           <button
             type="button"
             onClick={(e) => {
@@ -506,26 +542,26 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
               onDecline(trip.id);
             }}
             style={{
-              height: '48px',
-              borderRadius: '14px',
-              border: isDarkTheme ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(239, 68, 68, 0.25)',
-              background: isDarkTheme ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.08)',
-              color: '#EF4444',
-              fontSize: '14px',
-              fontWeight: 750,
+              height: '52px',
+              borderRadius: '16px',
+              border: isDarkTheme ? '1.5px solid #7F1D1D' : '1.5px solid #FCA5A5',
+              background: isDarkTheme ? '#201416' : '#FFF5F5',
+              color: isDarkTheme ? '#EF4444' : '#DC2626',
+              fontSize: '15px',
+              fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
+              gap: '8px',
               transition: 'all 0.15s ease'
             }}
           >
-            <Icon name="x" size={14} color="#EF4444" />
+            <Icon name="x" size={15} color={isDarkTheme ? '#EF4444' : '#DC2626'} />
             <span>Decline</span>
           </button>
 
-          {/* Premium Accept Button */}
+          {/* Accept Button */}
           <button
             type="button"
             disabled={isAccepting}
@@ -536,24 +572,26 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
               onAccept(trip.id);
             }}
             style={{
-              height: '48px',
-              borderRadius: '14px',
+              height: '52px',
+              borderRadius: '16px',
               border: 'none',
-              background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)',
+              background: isDarkTheme ? '#00C265' : '#161922',
               color: '#FFFFFF',
-              fontSize: '15px',
+              fontSize: '15.5px',
               fontWeight: 800,
               cursor: isAccepting ? 'not-allowed' : 'pointer',
               opacity: isAccepting ? 0.75 : 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '7px',
-              boxShadow: '0 4px 16px rgba(22, 163, 74, 0.35)',
-              transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+              gap: '8px',
+              boxShadow: isDarkTheme
+                ? '0 6px 20px rgba(0, 194, 101, 0.4)'
+                : '0 4px 14px rgba(22, 25, 34, 0.25)',
+              transition: 'all 0.15s ease'
             }}
           >
-            <Icon name="check" size={16} color="#FFFFFF" />
+            <Icon name="check" size={17} color="#FFFFFF" />
             <span>{isAccepting ? 'Accepting...' : `Accept ₹${fare}`}</span>
           </button>
         </div>
@@ -561,4 +599,3 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
     </div>
   );
 }
-
