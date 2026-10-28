@@ -19,6 +19,7 @@ import ContactProfileCard from './ContactProfileCard';
 import CustomVideoPlayer from './CustomVideoPlayer';
 import InspectionMediaModal from './InspectionMediaModal';
 import DriverCustomTripNotification from './DriverCustomTripNotification';
+import TripRequest, { DEFAULT_SAMPLE_TRIP } from './TripRequest';
 import { isDriverTrip } from '../services/driverService';
 import { supabase } from '../lib/supabase';
 import { getRecordedVideoUrl } from '../utils/inspectionVideoStore';
@@ -1207,6 +1208,7 @@ export default function DriverApp() {
   } = useApp();
 
   const [dFilter, setDFilter] = useState('all');
+  const [dismissDemoRequest, setDismissDemoRequest] = useState(false);
 
   // Active Trip Action & Lifecycle Modals
   const [activeTripAction, setActiveTripAction] = useState(null);
@@ -3439,307 +3441,88 @@ export default function DriverApp() {
                 {/* Column 2: Live Operations & Dispatch Feed */}
                 <div className="driver-dash-col driver-dash-col-feed">
                   {/* Card 3: Trip Requests Section */}
-                  <div
-                    className="card stagger-2"
-              style={{
-                borderRadius: '24px',
-                padding: '18px 16px',
-                marginBottom: '16px',
-                border: '1px solid var(--line)',
-                background: 'var(--card)',
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)'
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '14px'
-                }}
-              >
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: '18px',
-                    fontWeight: 800,
-                    color: 'var(--ink)',
-                    letterSpacing: '-0.02em'
-                  }}
-                >
-                  Trip requests
-                </h3>
-                <span
-                  style={{
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    color: 'var(--muted)'
-                  }}
-                >
-                  {driverOnline ? requestedTrips.length : 0} waiting
-                </span>
-              </div>
-
-            {driverOnline && requestedTrips.length > 0 ? (
-              <div className="stack" style={{ willChange: 'contents' }}>
-                {requestedTrips.map(t => {
-                  const c = CATS[t.cat] || CATS.hourly;
-                  const fare = Number(t.fare) || 600;
-                  // 30% platform commission deducted -> Driver receives 70% earnings
-                  const driverEarn = Math.round(fare * 0.70);
-
-                  return (
-                    <article
-                      key={t.id}
-                      className="card trip"
-                      style={{
-                        padding: '16px',
-                        borderRadius: '22px',
-                        border: '1.5px solid #000000',
-                        background: 'var(--card)',
-                        boxShadow: '0 6px 22px rgba(0, 0, 0, 0.08)',
-                        position: 'relative',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      {/* Top Accent Line */}
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: 'var(--yellow)' }} />
-
-                      {/* Top Header: LIVE REQUEST indicator & Category Badge on a single line */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                          <span
-                            style={{
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              background: '#16A34A',
-                              boxShadow: '0 0 0 3px rgba(22, 163, 74, 0.25)',
-                              animation: 'pulse 1.2s infinite',
-                              flexShrink: 0
-                            }}
-                          />
-                          <span style={{ fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#16A34A', whiteSpace: 'nowrap' }}>
-                            LIVE REQUEST
-                          </span>
+                  {/* Card 3: Trip Requests Section (Redesigned with exact reference light/dark design) */}
+                  <div className="trip-requests-section stagger-2" style={{ marginBottom: '16px' }}>
+                    {driverOnline ? (
+                      requestedTrips.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                          {requestedTrips.map((t, idx) => (
+                            <TripRequest
+                              key={t.id}
+                              trip={t}
+                              waitingCount={requestedTrips.length}
+                              showHeader={idx === 0}
+                              onAccept={(tripId) => handleAccept(tripId || t.id)}
+                              onDecline={(tripId) => handleDecline(tripId || t.id)}
+                            />
+                          ))}
                         </div>
-
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '3px 8px',
-                            borderRadius: '8px',
-                            background: 'var(--yellow)',
-                            color: '#000000',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0
+                      ) : !dismissDemoRequest ? (
+                        <TripRequest
+                          trip={DEFAULT_SAMPLE_TRIP}
+                          waitingCount={1}
+                          showHeader={true}
+                          onAccept={(tripId) => {
+                            handleAccept(tripId || DEFAULT_SAMPLE_TRIP.id);
+                            setDismissDemoRequest(true);
                           }}
-                        >
-                          <Icon name={c.icon} size={12} />
-                          <span style={{ whiteSpace: 'nowrap' }}>{c.name.toUpperCase()} · {t.qty || 1} {c.unit || 'hr'}</span>
-                        </span>
-                      </div>
-
-                      {/* Clean Single-Line Trip Schedule Strip */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '5px 10px',
-                          borderRadius: '8px',
-                          background: 'rgba(37, 99, 235, 0.08)',
-                          marginBottom: '10px'
-                        }}
-                      >
-                        <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
-                          Trip Schedule
-                        </span>
-                        <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#1E40AF', whiteSpace: 'nowrap' }}>
-                          {formatTripSchedule(t)}
-                        </span>
-                      </div>
-
-                      {/* Driver Earnings (Shows ONLY Driver's Earnings after 30% platform commission) */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'baseline',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
-                          borderRadius: '14px',
-                          background: 'var(--field)',
-                          marginBottom: '12px'
-                        }}
-                      >
-                        <div>
-                          <span style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                            Driver Earnings
-                          </span>
-                          <div style={{ fontSize: '24px', fontWeight: 850, color: '#16A34A', letterSpacing: '-0.02em', marginTop: '1px' }}>
-                            ₹{driverEarn}
+                          onDecline={(tripId) => {
+                            handleDecline(tripId || DEFAULT_SAMPLE_TRIP.id);
+                            setDismissDemoRequest(true);
+                          }}
+                        />
+                      ) : (
+                        <div className="trip-request-wrapper">
+                          <header className="trip-header">
+                            <h1 className="trip-title">Trip requests</h1>
+                            <div className="header-right">
+                              <span className="waiting-count">0 waiting</span>
+                            </div>
+                          </header>
+                          <div className="trip-empty-state">
+                            <div className="empty-state-icon">
+                              <Icon name="checkCircle" size={24} />
+                            </div>
+                            <h4>No active trip requests</h4>
+                            <p>You're online and ready. New customer ride requests will appear here automatically.</p>
+                            <button
+                              type="button"
+                              onClick={() => setDismissDemoRequest(false)}
+                              style={{
+                                marginTop: '14px',
+                                padding: '8px 16px',
+                                borderRadius: '10px',
+                                border: '1px solid var(--border)',
+                                background: 'var(--surface-soft)',
+                                color: 'var(--text)',
+                                fontSize: '12.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Show Reference Trip
+                            </button>
                           </div>
                         </div>
-
-                        <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>
-                          1.2 km away
-                        </span>
-                      </div>
-
-                      {/* Minimal Route Details */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16A34A', flexShrink: 0 }} />
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {cleanLocationName(t.pickup) || 'Edappally Toll, Kochi'}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#EF4444', flexShrink: 0 }} />
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {cleanLocationName(t.drop_loc) || 'City Route'}
-                          </span>
+                      )
+                    ) : (
+                      <div className="trip-request-wrapper">
+                        <header className="trip-header">
+                          <h1 className="trip-title">Trip requests</h1>
+                          <div className="header-right">
+                            <span className="waiting-count">Offline</span>
+                          </div>
+                        </header>
+                        <div className="trip-empty-state">
+                          <div className="empty-state-icon">
+                            <Icon name="moon" size={24} />
+                          </div>
+                          <h4>You are currently offline</h4>
+                          <p>Turn on the Go Online switch above to start receiving ride requests.</p>
                         </div>
                       </div>
-
-                      {/* Real Google Maps Total Distance & ETA */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 12px',
-                          borderRadius: '12px',
-                          background: 'var(--surface)',
-                          border: '1px solid var(--line)',
-                          marginBottom: '12px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Icon name="map-pin" size={13} color="var(--ink)" />
-                          <span style={{ fontSize: '12px', fontWeight: 750, color: 'var(--ink)' }}>
-                            Distance: <b>{t.distanceText || '12.4 km'}</b>
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Icon name="clock" size={13} color="#16A34A" />
-                          <span style={{ fontSize: '12px', fontWeight: 750, color: '#16A34A' }}>
-                            Est. Time: <b>~{t.durationText || '28 mins'}</b>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Rider & Transmission info */}
-                      <div style={{ fontSize: '11.5px', color: 'var(--muted)', fontWeight: 600, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>{t.rider?.name || 'Customer'} (4.9 Rating)</span>
-                        <span>·</span>
-                        <span>{t.trans || t.car?.trans || 'Manual'} Transmission</span>
-                      </div>
-
-                      {/* Action Buttons: Decline and Accept Ride - Clean Text Only */}
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{
-                            flex: 1,
-                            height: '44px',
-                            borderRadius: '12px',
-                            background: '#FFFFFF',
-                            color: '#DC2626',
-                            border: '1.5px solid #DC2626',
-                            fontWeight: 700,
-                            fontSize: '13.5px',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => handleDecline(t.id)}
-                        >
-                          Decline
-                        </button>
-
-                        <button
-                          type="button"
-                          className="btn primary"
-                          style={{
-                            flex: 1.8,
-                            height: '44px',
-                            borderRadius: '12px',
-                            background: '#000000',
-                            color: '#FFFFFF',
-                            border: '1.5px solid #000000',
-                            fontWeight: 800,
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)'
-                          }}
-                          onClick={() => handleAccept(t.id)}
-                        >
-                          <span>Accept Ride</span>
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <div
-                style={{
-                  background: 'var(--field)',
-                  borderRadius: '18px',
-                  padding: '36px 16px',
-                  textAlign: 'center',
-                  border: '1px solid var(--line)'
-                }}
-              >
-                <div
-                  style={{
-                    width: '54px',
-                    height: '54px',
-                    borderRadius: '50%',
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    color: '#10B981',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 12px'
-                  }}
-                >
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2v2" />
-                    <path d="m4.93 4.93 1.41 1.41" />
-                    <path d="m19.07 4.93-1.41 1.41" />
-                    <path d="M22 13h-4l-2 3h-8l-2-3H2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6z" />
-                  </svg>
-                </div>
-                <div
-                  style={{
-                    fontSize: '14.5px',
-                    fontWeight: 750,
-                    color: 'var(--ink)',
-                    marginBottom: '4px'
-                  }}
-                >
-                  {driverOnline ? 'No new requests.' : 'You are currently offline.'}
-                </div>
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--muted)',
-                    fontWeight: 500
-                  }}
-                >
-                  {driverOnline ? 'Stay online to receive trips.' : 'Turn on toggle to receive trip requests.'}
-                </div>
-              </div>
-            )}
-          </div>
+                    )}
+                  </div>
 
           {/* Card 4: Today Trips Section */}
           <div
