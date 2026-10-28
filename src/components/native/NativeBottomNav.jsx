@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import NativeIcon from './NativeIcon';
-import { LightTheme, DarkTheme } from '../../styles/theme';
+import { LightTheme, DarkTheme, Radii, Shadows } from '../../styles/theme';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -19,9 +19,11 @@ export default function NativeBottomNav({
   if (!visible) return null;
 
   const theme = isDark ? DarkTheme : LightTheme;
+  const activeBg = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(15, 23, 42, 0.07)';
+  const containerBg = isDark ? 'rgba(22, 24, 30, 0.94)' : 'rgba(255, 255, 255, 0.94)';
 
   return (
-    <View style={[styles.navContainer, { backgroundColor: theme.card, borderTopColor: theme.line }]}>
+    <View style={[styles.navContainer, { backgroundColor: containerBg }]}>
       {NAV_ITEMS.map((item) => {
         const isActive = activeTab === item.id;
         const iconColor = isActive ? theme.ink : theme.muted;
@@ -30,8 +32,11 @@ export default function NativeBottomNav({
         return (
           <TouchableOpacity
             key={item.id}
-            style={styles.navItem}
-            activeOpacity={0.7}
+            style={[
+              styles.navItem,
+              isActive && [styles.activeNavItem, { backgroundColor: activeBg }],
+            ]}
+            activeOpacity={0.75}
             onPress={() => onSelectTab && onSelectTab(item.id)}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
@@ -40,12 +45,20 @@ export default function NativeBottomNav({
             <View style={styles.iconWrap}>
               <NativeIcon
                 name={item.icon}
-                size={22}
+                size={21}
                 color={iconColor}
                 filled={isActive}
               />
             </View>
-            <Text style={[styles.navLabel, { color: textColor }]}>
+            <Text
+              style={[
+                styles.navLabel,
+                {
+                  color: textColor,
+                  fontWeight: isActive ? '700' : '500',
+                },
+              ]}
+            >
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -60,38 +73,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    height: Platform.OS === 'ios' ? 76 : 60,
-    paddingBottom: Platform.OS === 'ios' ? 16 : 4,
-    paddingTop: 6,
-    borderTopWidth: StyleSheet.hairlineWidth * 1.5,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 8,
-      },
-      default: {},
-    }),
+    marginHorizontal: 16,
+    marginBottom: Platform.OS === 'ios' ? 14 : 10,
+    height: 60,
+    borderRadius: Radii.pill || 9999,
+    paddingHorizontal: 6,
+    borderWidth: 0,
+    borderTopWidth: 0,
+    ...Shadows.floating,
   },
   navItem: {
     flex: 1,
-    height: 44,
+    height: 48,
+    borderRadius: Radii.pill || 9999,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 0,
+  },
+  activeNavItem: {
+    borderWidth: 0,
   },
   iconWrap: {
-    height: 24,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.1,
+    letterSpacing: -0.1,
     marginTop: 2,
   },
 });
