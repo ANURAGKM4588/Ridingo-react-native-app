@@ -203,14 +203,14 @@ targets.forEach(t => {
   console.log(`✅ Compiled production assets for ${t.name} -> ${t.distDirs.map(d => path.relative(rootDir, d)).join(', ')}`);
 });
 
-// Automatically synchronize native notification icons and app icons from public/App icon.png
+// Automatically synchronize native notification icons and Android adaptive app icons
 try {
-  const psScript = path.join(rootDir, 'scripts', 'generate-notification-icons.ps1');
-  if (fs.existsSync(psScript)) {
-    console.log('🔔 Synchronizing native notification icons from public/App icon.png...');
-    execSync(`powershell -ExecutionPolicy Bypass -File "${psScript}"`, { cwd: rootDir, stdio: 'inherit' });
+  const iconScript = path.join(rootDir, 'scripts', 'generate-android-icons.js');
+  if (fs.existsSync(iconScript)) {
+    console.log('🔔 Synchronizing native Android adaptive icons & notification icons...');
+    execSync(`node "${iconScript}"`, { cwd: rootDir, stdio: 'inherit' });
   }
 } catch (e) {
-  console.warn('Note: Could not run generate-notification-icons.ps1:', e.message);
+  console.warn('Note: Could not run generate-android-icons.js:', e.message);
 }
 
