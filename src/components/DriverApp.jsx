@@ -19,7 +19,7 @@ import ContactProfileCard from './ContactProfileCard';
 import CustomVideoPlayer from './CustomVideoPlayer';
 import InspectionMediaModal from './InspectionMediaModal';
 import DriverCustomTripNotification from './DriverCustomTripNotification';
-import TripRequest, { DEFAULT_SAMPLE_TRIP } from './TripRequest';
+import TripRequest from './TripRequest';
 import { isDriverTrip } from '../services/driverService';
 import { supabase } from '../lib/supabase';
 import { getRecordedVideoUrl } from '../utils/inspectionVideoStore';
@@ -884,7 +884,6 @@ export default function DriverApp() {
   } = useApp();
 
   const [dFilter, setDFilter] = useState('all');
-  const [dismissDemoRequest, setDismissDemoRequest] = useState(true);
 
   // Active Trip Action & Lifecycle Modals
   const [activeTripAction, setActiveTripAction] = useState(null);
@@ -3172,20 +3171,6 @@ export default function DriverApp() {
                             />
                           ))}
                         </div>
-                      ) : !dismissDemoRequest ? (
-                        <TripRequest
-                          trip={DEFAULT_SAMPLE_TRIP}
-                          waitingCount={1}
-                          showHeader={true}
-                          onAccept={(tripId) => {
-                            handleAccept(tripId || DEFAULT_SAMPLE_TRIP.id);
-                            setDismissDemoRequest(true);
-                          }}
-                          onDecline={(tripId) => {
-                            handleDecline(tripId || DEFAULT_SAMPLE_TRIP.id);
-                            setDismissDemoRequest(true);
-                          }}
-                        />
                       ) : (
                         <div className="trip-request-wrapper">
                           <header className="trip-header">
@@ -3200,23 +3185,6 @@ export default function DriverApp() {
                             </div>
                             <h4>No active trip requests</h4>
                             <p>You're online and ready. New customer ride requests will appear here automatically.</p>
-                            <button
-                              type="button"
-                              onClick={() => setDismissDemoRequest(false)}
-                              style={{
-                                marginTop: '14px',
-                                padding: '8px 16px',
-                                borderRadius: '10px',
-                                border: '1px solid var(--border)',
-                                background: 'var(--surface-soft)',
-                                color: 'var(--text)',
-                                fontSize: '12.5px',
-                                fontWeight: 700,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              Show Reference Trip
-                            </button>
                           </div>
                         </div>
                       )

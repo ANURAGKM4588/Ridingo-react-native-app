@@ -1534,7 +1534,7 @@ export default function PhonePePgCheckout() {
                     justifyContent: 'center'
                   }}
                 >
-                  Simulate QR Scan Complete
+                  I Have Completed Payment
                 </button>
               </div>
             )}

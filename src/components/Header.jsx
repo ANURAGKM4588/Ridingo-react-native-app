@@ -32,9 +32,7 @@ export default function Header() {
             Driver app
           </button>
         </div>
-        <button className="btn line sm" onClick={resetDemo}>
-          Reset demo
-        </button>
+
       </div>
     </header>
   );

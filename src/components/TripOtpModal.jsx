@@ -135,28 +135,7 @@ export default function TripOtpModal({
           </span>
         )}
 
-        {/* Hint for demo testing (restricted to dev mode only) */}
-        {isDev && (
-          <button
-            type="button"
-            onClick={() => {
-              const arr = correctOtp ? correctOtp.split('') : ['4', '8', '2', '1'];
-              setDigits(arr);
-              checkOtp(arr.join(''));
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--brand, #2563EB)',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              marginBottom: '16px'
-            }}
-          >
-            [Dev Testing Only] Customer provided code: <b>{correctOtp || '4821'}</b> (Tap to auto-fill)
-          </button>
-        )}
+
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button

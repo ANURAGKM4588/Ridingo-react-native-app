@@ -1223,46 +1223,7 @@ export default function PaymentSheet() {
               <span>PhonePe 256-bit SSL encrypted verification</span>
             </div>
 
-            {/* Test Simulation Controls (Easy demo & test) */}
-            <div style={{ borderTop: isDark ? '1px dashed #3A3A3C' : '1px dashed #E2E8F0', paddingTop: '12px', width: '100%' }}>
-              <span style={{ fontSize: '10px', color: mutedColor, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', display: 'block', marginBottom: '8px' }}>
-                Test Mode Simulation
-              </span>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => resolveVerification(true)}
-                  style={{
-                    padding: '8px 4px',
-                    borderRadius: '8px',
-                    background: isDark ? 'rgba(34, 197, 94, 0.15)' : '#F0FDF4',
-                    border: isDark ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid #BBF7D0',
-                    color: isDark ? '#4ADE80' : '#16A34A',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Simulate Success
-                </button>
-                <button
-                  type="button"
-                  onClick={() => resolveVerification(false, 'Payment cancelled or declined by bank')}
-                  style={{
-                    padding: '8px 4px',
-                    borderRadius: '8px',
-                    background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
-                    border: isDark ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #FECACA',
-                    color: isDark ? '#FCA5A5' : '#DC2626',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Simulate Failure
-                </button>
-              </div>
-            </div>
+
           </div>
         </div>
       )}
