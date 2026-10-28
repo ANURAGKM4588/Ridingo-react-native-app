@@ -3155,53 +3155,157 @@ export default function DriverApp() {
                 {/* Column 2: Live Operations & Dispatch Feed */}
                 <div className="driver-dash-col driver-dash-col-feed">
                   {/* Card 3: Trip Requests Section */}
-                  {/* Card 3: Trip Requests Section (Redesigned with exact reference light/dark design) */}
-                  <div className="trip-requests-section stagger-2" style={{ marginBottom: '16px' }}>
+                  <div
+                    className="card stagger-2"
+                    style={{
+                      borderRadius: '24px',
+                      padding: '18px 16px',
+                      marginBottom: '16px',
+                      border: '1px solid var(--line)',
+                      background: 'var(--card)',
+                      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)'
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '14px'
+                      }}
+                    >
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: '18px',
+                          fontWeight: 800,
+                          color: 'var(--ink)',
+                          letterSpacing: '-0.02em'
+                        }}
+                      >
+                        Trip requests
+                      </h3>
+                      <span
+                        style={{
+                          fontSize: '12.5px',
+                          fontWeight: 600,
+                          color: 'var(--muted)'
+                        }}
+                      >
+                        {driverOnline ? `${requestedTrips.length} waiting` : 'Offline'}
+                      </span>
+                    </div>
+
                     {driverOnline ? (
                       requestedTrips.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                          {requestedTrips.map((t, idx) => (
+                          {requestedTrips.map((t) => (
                             <TripRequest
                               key={t.id}
                               trip={t}
                               waitingCount={requestedTrips.length}
-                              showHeader={idx === 0}
+                              showHeader={false}
                               onAccept={(tripId) => handleAccept(tripId || t.id)}
                               onDecline={(tripId) => handleDecline(tripId || t.id)}
                             />
                           ))}
                         </div>
                       ) : (
-                        <div className="trip-request-wrapper">
-                          <header className="trip-header">
-                            <h1 className="trip-title">Trip requests</h1>
-                            <div className="header-right">
-                              <span className="waiting-count">0 waiting</span>
-                            </div>
-                          </header>
-                          <div className="trip-empty-state">
-                            <div className="empty-state-icon">
-                              <Icon name="checkCircle" size={24} />
-                            </div>
-                            <h4>No active trip requests</h4>
-                            <p>You're online and ready. New customer ride requests will appear here automatically.</p>
+                        <div
+                          style={{
+                            background: 'var(--field)',
+                            borderRadius: '18px',
+                            padding: '36px 16px',
+                            textAlign: 'center',
+                            border: '1px solid var(--line)'
+                          }}
+                        >
+                          <div
+                            className="empty-state-icon"
+                            style={{
+                              width: '50px',
+                              height: '50px',
+                              borderRadius: '50%',
+                              background: 'var(--surface-soft, #F1F5F9)',
+                              color: 'var(--muted, #64748B)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              margin: '0 auto 12px'
+                            }}
+                          >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '14.5px',
+                              fontWeight: 750,
+                              color: 'var(--ink)',
+                              marginBottom: '4px'
+                            }}
+                          >
+                            No active trip requests.
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--muted)',
+                              fontWeight: 500
+                            }}
+                          >
+                            You're online and ready. New customer ride requests will appear here.
                           </div>
                         </div>
                       )
                     ) : (
-                      <div className="trip-request-wrapper">
-                        <header className="trip-header">
-                          <h1 className="trip-title">Trip requests</h1>
-                          <div className="header-right">
-                            <span className="waiting-count">Offline</span>
-                          </div>
-                        </header>
-                        <div className="trip-empty-state">
-                          <div className="empty-state-icon">
-                            <Icon name="moon" size={24} />
-                          </div>
-                          <h4>You are currently offline</h4>
-                          <p>Turn on the Go Online switch above to start receiving ride requests.</p>
+                      <div
+                        style={{
+                          background: 'var(--field)',
+                          borderRadius: '18px',
+                          padding: '36px 16px',
+                          textAlign: 'center',
+                          border: '1px solid var(--line)'
+                        }}
+                      >
+                        <div
+                          className="empty-state-icon"
+                          style={{
+                            width: '50px',
+                            height: '50px',
+                            borderRadius: '50%',
+                            background: 'var(--surface-soft, #F1F5F9)',
+                            color: 'var(--muted, #64748B)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 12px'
+                          }}
+                        >
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                          </svg>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '14.5px',
+                            fontWeight: 750,
+                            color: 'var(--ink)',
+                            marginBottom: '4px'
+                          }}
+                        >
+                          You are currently offline.
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--muted)',
+                            fontWeight: 500
+                          }}
+                        >
+                          Turn on the Go Online switch above to start receiving ride requests.
                         </div>
                       </div>
                     )}
