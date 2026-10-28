@@ -55,9 +55,10 @@ const CATS = {
 };
 
 import { getDistance } from 'geolib';
-import { cleanLocationName } from '../utils/locationCleaner';
+import { cleanLocationName, getLocationUpToFirstComma } from '../utils/locationCleaner';
+import { reverseGeocode, getDeviceLocation, getCachedDeviceLocation } from '../lib/deviceLocation';
 import { calculateHaversineDistance, formatDistanceKm, formatDurationSeconds } from '../utils/geoDistance';
-export { cleanLocationName };
+export { cleanLocationName, getLocationUpToFirstComma };
 
 /**
  * Formats trip date and time for clean display on popups and cards
@@ -884,6 +885,79 @@ export default function DriverApp() {
   } = useApp();
 
   const [dFilter, setDFilter] = useState('all');
+
+  // Real-time device location for driver dashboard profile badge (first comma before location name)
+  const [driverRealLocation, setDriverRealLocation] = useState(() => {
+    try {
+      const cached = getCachedDeviceLocation() || JSON.parse(localStorage.getItem('ridingo_cached_device_coords') || 'null');
+      if (cached?.address) {
+        const shortLoc = getLocationUpToFirstComma(cached.address);
+        if (shortLoc && shortLoc !== 'Location' && !shortLoc.startsWith('Location (')) {
+          return shortLoc;
+        }
+      }
+    } catch (_) {}
+    return driverPartner?.city || 'Locating...';
+  });
+
+  // Track device real-time location and update dashboard profile badge (first comma before location name)
+  useEffect(() => {
+    let isMounted = true;
+    let watchId = null;
+
+    const resolvePositionName = async (lat, lng) => {
+      try {
+        const addr = await reverseGeocode(lat, lng);
+        if (isMounted && addr) {
+          const shortLoc = getLocationUpToFirstComma(addr, driverPartner?.city || 'Locating...');
+          if (shortLoc && shortLoc !== 'Location' && !shortLoc.startsWith('Location (')) {
+            setDriverRealLocation(shortLoc);
+          }
+        }
+      } catch (err) {
+        console.warn('Driver device location reverse geocode error:', err);
+      }
+    };
+
+    // 1. Initial fast acquisition
+    getDeviceLocation().then(pos => {
+      if (!isMounted || !pos) return;
+      if (pos.address) {
+        const shortLoc = getLocationUpToFirstComma(pos.address);
+        if (shortLoc && shortLoc !== 'Location' && !shortLoc.startsWith('Location (')) {
+          setDriverRealLocation(shortLoc);
+          return;
+        }
+      }
+      if (pos.lat && pos.lng) {
+        resolvePositionName(pos.lat, pos.lng);
+      }
+    }).catch(err => {
+      console.warn('Initial driver device location error:', err);
+    });
+
+    // 2. Real-time watch for updates when moving
+    watchDevicePosition(
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+      (pos) => {
+        if (!isMounted || !pos?.coords) return;
+        const { latitude, longitude } = pos.coords;
+        resolvePositionName(latitude, longitude);
+      },
+      (err) => {
+        console.warn('Driver watchDevicePosition error:', err);
+      }
+    ).then(id => {
+      watchId = id;
+    }).catch(() => {});
+
+    return () => {
+      isMounted = false;
+      if (watchId !== null) {
+        clearDeviceWatch(watchId);
+      }
+    };
+  }, [driverPartner?.city]);
 
   // Active Trip Action & Lifecycle Modals
   const [activeTripAction, setActiveTripAction] = useState(null);
@@ -2780,7 +2854,7 @@ export default function DriverApp() {
                       </span>
                     </div>
 
-                    {/* Subtitle location badge (no Pro Driver badge) */}
+                    {/* Subtitle location badge (real-time device location up to first comma) */}
                     <div
                       style={{
                         display: 'flex',
@@ -2791,12 +2865,15 @@ export default function DriverApp() {
                         fontWeight: 550,
                         marginTop: '3px'
                       }}
+                      title="Current Real-time Device Location"
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.75, flexShrink: 0 }}>
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                         <circle cx="12" cy="10" r="3" />
                       </svg>
-                      <span>Kochi Central</span>
+                      <span className="ell" style={{ maxWidth: '140px' }}>
+                        {driverRealLocation || driverPartner?.city || 'Locating...'}
+                      </span>
                     </div>
                   </div>
                 </div>
