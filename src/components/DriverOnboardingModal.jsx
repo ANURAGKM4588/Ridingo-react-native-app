@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import BrandLogo from './BrandLogo';
 import Icon from './Icon';
 import { sendOtp, verifyOtp, formatIndianPhone } from '../services/authOtpService';
-import { performNativeGoogleSignIn } from '../services/nativeGoogleAuth';
+import { performGoogleSignIn } from '../services/googleAuthUnified';
 import { registerDriverProfile, checkDriverExists } from '../services/driverService';
 import { validateUploadFile, ALLOWED_DOCUMENT_MIME_TYPES } from '../services/secureStorageService.js';
 
@@ -38,7 +38,6 @@ export default function DriverOnboardingModal() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [showGooglePicker, setShowGooglePicker] = useState(false);
   const [otpError, setOtpError] = useState(null);
   const [unregisteredMobile, setUnregisteredMobile] = useState('');
   const [kycWarning, setKycWarning] = useState(null);
@@ -483,52 +482,37 @@ export default function DriverOnboardingModal() {
   };
 
   const handleGoogleSignIn = async () => {
-    // 1. Native iOS / Android device
-    if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
-      setIsGoogleLoading(true);
-      try {
-        const gUser = await performNativeGoogleSignIn();
-        if (gUser && gUser.email) {
-          loginDriverWithDetails({
-            name: gUser.name || `${gUser.firstName || ''} ${gUser.lastName || ''}`.trim() || 'Driver Partner',
-            email: gUser.email,
-            avatar: gUser.avatar || null,
-            googleId: gUser.id || null,
-            idToken: gUser.idToken || null,
-            authMethod: 'google',
-            isAuthenticated: true
-          });
-          addToast(`Welcome to Driver Portal, ${gUser.name || 'Partner'}!`, 'check');
-          return;
-        }
-      } catch (err) {
-        console.warn('Google Sign-In error:', err);
-        const isCancelled = err?.message?.toLowerCase()?.includes('cancel') ||
-                            err?.message?.toLowerCase()?.includes('abort') ||
-                            err?.code === '12501' || err?.code === 12501;
-        if (!isCancelled) {
-          addToast(err?.message || 'Google Sign-In was cancelled.', 'warn');
-        }
+    if (isGoogleLoading) return;
+    setIsGoogleLoading(true);
+    try {
+      addToast('Opening Google Sign-In...', 'info');
+      const gUser = await performGoogleSignIn();
+      if (gUser && gUser.email) {
+        const rawName = gUser.name || `${gUser.firstName || ''} ${gUser.lastName || ''}`.trim() || 'Driver Partner';
+        loginDriverWithDetails({
+          name: rawName,
+          email: gUser.email,
+          avatar: gUser.avatar || null,
+          googleId: gUser.googleId || gUser.id || null,
+          idToken: gUser.accessToken || gUser.idToken || null,
+          authMethod: 'google',
+          provider: 'google',
+          isAuthenticated: true
+        });
+        setDriverOnboardingOpen(false);
+        addToast(`Welcome to Driver Portal, ${gUser.firstName || rawName}!`, 'check');
         return;
-      } finally {
-        setIsGoogleLoading(false);
       }
+    } catch (err) {
+      if (err?.isCancelled) {
+        addToast('Google Sign-In was cancelled.', 'warn');
+        return;
+      }
+      console.warn('Google Sign-In notice:', err);
+      addToast(err?.message || 'Could not complete Google Sign-In.', 'warn');
+    } finally {
+      setIsGoogleLoading(false);
     }
-
-    // 2. Web browser preview fallback -> Open interactive Google Account Chooser
-    setShowGooglePicker(true);
-  };
-
-  const handleSelectGoogleAccount = (acc) => {
-    setShowGooglePicker(false);
-    loginDriverWithDetails({
-      name: acc.name,
-      email: acc.email,
-      avatar: acc.avatar,
-      authMethod: 'google',
-      isAuthenticated: true
-    });
-    addToast(`Signed in with Google as ${acc.name}!`, 'check');
   };
 
   const fieldStyle = {
@@ -1487,96 +1471,6 @@ export default function DriverOnboardingModal() {
           </span>
         </p>
       </div>
-
-      {/* Google Account Chooser Modal (Browser Preview Fallback) */}
-      {showGooglePicker && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            background: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-          onClick={() => setShowGooglePicker(false)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '380px',
-              borderRadius: '24px',
-              background: 'var(--surface)',
-              border: '1px solid var(--line)',
-              padding: '24px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <b style={{ fontSize: '16px', color: 'var(--ink)' }}>Choose an account</b>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowGooglePicker(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              >
-                <Icon name="x" size={18} />
-              </button>
-            </div>
-
-            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
-              to continue to <strong style={{ color: 'var(--ink)' }}>Ridingo Driver Portal</strong>
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                { name: 'Ravi Kumar', email: 'ravi.driver@gmail.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
-                { name: 'Arjun Menon', email: 'arjun.driver@gmail.com', avatar: null }
-              ].map((acc, i) => (
-                <div
-                  key={i}
-                  onClick={() => handleSelectGoogleAccount(acc)}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: '14px',
-                    border: '1.5px solid var(--line)',
-                    background: 'var(--card)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--ink)', color: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px', overflow: 'hidden' }}>
-                    {acc.avatar ? <img src={acc.avatar} alt={acc.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : acc.name[0]}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <b style={{ fontSize: '13.5px', color: 'var(--ink)', display: 'block' }}>{acc.name}</b>
-                    <span style={{ fontSize: '12px', color: 'var(--muted)', display: 'block' }}>{acc.email}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-
     </div>
   );
 }

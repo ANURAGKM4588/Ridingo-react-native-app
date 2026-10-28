@@ -52,6 +52,9 @@ class RealtimeHub {
       // 3. Supabase Cloud Realtime WebSocket Channel with Broadcast & Presence
       this._initSupabaseChannel();
 
+      // 4. Server-Based Realtime SSE Dispatch Bus (Connects 5173 <-> 5174 cross-port!)
+      this._initServerEvents();
+
       // Auto-reconnect on visibility change / app resume
       if (typeof document !== 'undefined') {
         document.addEventListener('visibilitychange', () => {
@@ -101,9 +104,39 @@ class RealtimeHub {
     }
   }
 
+
+  _initServerEvents() {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+    try {
+      if (this.serverEventSource) {
+        try { this.serverEventSource.close(); } catch (_) {}
+      }
+      const sseUrl = `${window.location.origin}/api/events`;
+      this.serverEventSource = new EventSource(sseUrl);
+
+      this.serverEventSource.onmessage = (event) => {
+        if (!event?.data || event.data.startsWith(':')) return;
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed && parsed.type && parsed.senderId !== this.clientId) {
+            this._dispatchLocal(parsed.type, parsed.payload);
+          }
+        } catch (_) {}
+      };
+
+      this.serverEventSource.onerror = () => {
+        try { this.serverEventSource.close(); } catch (_) {}
+        setTimeout(() => this._initServerEvents(), 4000);
+      };
+    } catch (err) {
+      console.warn('[Realtime] Server SSE fallback notice:', err);
+    }
+  }
+
   reconnect() {
     console.info('[Realtime] Resyncing realtime channels on app resume...');
     this._initSupabaseChannel();
+    this._initServerEvents();
   }
 
   on(type, callback) {
@@ -179,6 +212,18 @@ class RealtimeHub {
           })
         );
       } catch (e) {}
+    }
+
+
+    // 5. Broadcast to Server-Based Dispatch Bus (guarantees cross-origin delivery between port 5173 and 5174!)
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      try {
+        fetch(`${window.location.origin}/api/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, payload, senderId: this.clientId })
+        }).catch(() => {});
+      } catch (_) {}
     }
 
     // 4. Broadcast via Supabase Cloud Realtime Channel
@@ -364,6 +409,16 @@ class RealtimeHub {
   requestRide(trip) {
     if (!trip) return;
     this._persistActiveTrip(trip);
+    // Instant Server-Based Trip Persistence
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      try {
+        fetch(`${window.location.origin}/api/trips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(trip)
+        }).catch(() => {});
+      } catch (_) {}
+    }
     this.emit('TRIP_REQUESTED', trip);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('RIDINGO_SHOW_CUSTOM_DRIVER_NOTIFICATION', { detail: { trip } }));
@@ -373,6 +428,15 @@ class RealtimeHub {
 
   acceptRide(tripId, driver, startOtp, driverCoords = null) {
     this._clearActiveTrip(tripId, 'accepted');
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      try {
+        fetch(`${window.location.origin}/api/trips/${tripId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'accepted', driver, startOtp, driverCoords })
+        }).catch(() => {});
+      } catch (_) {}
+    }
     this.emit('TRIP_ACCEPTED', { tripId, driver, startOtp, driverCoords, timestamp: Date.now() });
   }
 

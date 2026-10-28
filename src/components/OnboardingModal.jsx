@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import BrandLogo from './BrandLogo';
 import Icon from './Icon';
 import { sendOtp, verifyOtp, formatIndianPhone } from '../services/authOtpService';
-import { performNativeGoogleSignIn } from '../services/nativeGoogleAuth';
+import { performGoogleSignIn } from '../services/googleAuthUnified';
 import { supabase } from '../lib/supabase';
 import { checkUserExists, registerUserProfile, getUserProfileByLogin, generateRidingoUserId } from '../services/userService';
 
@@ -79,11 +79,8 @@ export default function OnboardingModal() {
   // Registration specifics
   const [regMobile, setRegMobile] = useState('');
 
-  // Google Account Chooser in-app state (Eliminates Error 401 origin mismatch)
-  const [showGooglePicker, setShowGooglePicker] = useState(false);
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
-  const [customGoogleName, setCustomGoogleName] = useState('');
-  const [showCustomGoogleForm, setShowCustomGoogleForm] = useState(false);
+  // Google Sign-In state
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Refs for OTP inputs
   const otpInputRefs = useRef([]);
@@ -465,94 +462,57 @@ export default function OnboardingModal() {
   };
 
   const handleGoogleSignIn = async () => {
-    // 1. In native mobile iOS / Android app:
-    // Triggers Apple ASWebAuthenticationSession:
-    // "Ridingo" Wants to Use "accounts.google.com" to Sign In -> accounts.google.com
-    if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
-      try {
-        addToast('Opening Google Sign-In...', 'info');
-        const gUser = await performNativeGoogleSignIn();
-        if (gUser && gUser.email) {
-          setFirstName(gUser.firstName);
-          setLastName(gUser.lastName);
-          setEmail(gUser.email);
-          setVerifiedUserObj({
-            id: gUser.id,
-            email: gUser.email,
-            avatar: gUser.avatar,
-            provider: 'google'
+    if (isGoogleLoading) return;
+    setIsGoogleLoading(true);
+    try {
+      addToast('Connecting to Google...', 'info');
+      const gUser = await performGoogleSignIn();
+      if (gUser && gUser.email) {
+        const rawName = gUser.name || `${gUser.firstName || ''} ${gUser.lastName || ''}`.trim() || 'Ridingo Member';
+        const fName = gUser.firstName || rawName.split(' ')[0] || 'Member';
+        const lName = gUser.lastName || (rawName.split(' ').slice(1).join(' ') || '');
+        
+        let resolvedId = gUser.id ? `RDU-${String(gUser.id).replace(/\D/g, '').slice(-5) || Math.floor(10000 + Math.random() * 90000)}` : generateRidingoUserId();
+        try {
+          const profile = await getUserProfileByLogin({
+            identifier: gUser.email,
+            name: rawName,
+            emailFallback: gUser.email
           });
-          setStep('profile');
-          addToast(`Signed in as ${gUser.name}! Please confirm your profile.`, 'check');
-          return;
-        }
-      } catch (err) {
-        console.warn('Native Google Auth result:', err);
-        const isCancelled = err?.isCancelled || err?.message?.toLowerCase()?.includes('cancel') || err?.code === '12501' || err?.code === 12501;
-        if (isCancelled) {
-          addToast('Google sign-in was cancelled.', 'warn');
-          return;
-        }
-        // Fall back to in-app Google Account Picker so user is never blocked on Android
-        setShowGooglePicker(true);
+          if (profile?.id || profile?.userId) {
+            resolvedId = profile.id || profile.userId;
+          }
+        } catch (_) {}
+
+        loginWithDetails({
+          id: resolvedId,
+          userId: resolvedId,
+          firstName: fName,
+          lastName: lName,
+          name: rawName,
+          email: gUser.email,
+          avatar: gUser.avatar || null,
+          googleId: gUser.googleId || gUser.id,
+          authMethod: 'google',
+          provider: 'google',
+          isAuthenticated: true,
+          isDemo: false
+        });
+
+        setOnboardingOpen(false);
+        addToast(`Welcome to Ridingo, ${fName}!`, 'check');
         return;
       }
-    }
-
-    // 2. Browser preview fallback
-    setShowGooglePicker(true);
-  };
-
-  const handleSelectGoogleAccount = async (acc) => {
-    const rawName = acc.name || 'Anurag K M';
-    const parts = rawName.trim().split(' ');
-    const fName = parts[0] || 'Anurag';
-    const lName = parts.slice(1).join(' ') || (parts.length > 1 ? '' : 'Kumar');
-    
-    setFirstName(fName);
-    setLastName(lName);
-    setEmail(acc.email);
-
-    let resolvedId = `RDU-${Math.floor(10000 + Math.random() * 90000)}`;
-    try {
-      const profile = await getUserProfileByLogin({
-        identifier: acc.email,
-        name: rawName,
-        emailFallback: acc.email
-      });
-      if (profile?.id || profile?.userId) {
-        resolvedId = profile.id || profile.userId;
+    } catch (err) {
+      if (err?.isCancelled) {
+        addToast('Google Sign-In was cancelled.', 'warn');
+        return;
       }
-    } catch (e) {
-      console.warn('Google profile lookup notice:', e);
+      console.warn('Google Sign-In notice:', err);
+      addToast(err?.message || 'Could not complete Google Sign-In.', 'warn');
+    } finally {
+      setIsGoogleLoading(false);
     }
-
-    setVerifiedUserObj({
-      id: resolvedId,
-      userId: resolvedId,
-      email: acc.email,
-      name: rawName,
-      avatar: acc.avatar || null,
-      provider: 'google'
-    });
-    setShowGooglePicker(false);
-    setShowCustomGoogleForm(false);
-    setStep('profile');
-    addToast(`Signed in with ${acc.email}! Please confirm your profile.`, 'check');
-  };
-
-  const handleCustomGoogleSubmit = (e) => {
-    e.preventDefault();
-    if (!customGoogleEmail.trim() || !customGoogleEmail.includes('@')) {
-      addToast('Please enter a valid Google email address', 'warn');
-      return;
-    }
-    const enteredName = customGoogleName.trim() || customGoogleEmail.split('@')[0];
-    handleSelectGoogleAccount({
-      name: enteredName,
-      email: customGoogleEmail.trim().toLowerCase(),
-      avatar: null
-    });
   };
 
   const slides = [
@@ -2004,6 +1964,7 @@ export default function OnboardingModal() {
             <button
               type="button"
               onClick={handleGoogleSignIn}
+              disabled={isGoogleLoading}
               style={{
                 width: '100%',
                 height: '48px',
@@ -2017,7 +1978,8 @@ export default function OnboardingModal() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '10px',
-                cursor: 'pointer',
+                cursor: isGoogleLoading ? 'not-allowed' : 'pointer',
+                opacity: isGoogleLoading ? 0.75 : 1,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                 transition: 'all 0.15s ease'
               }}
@@ -2028,98 +1990,10 @@ export default function OnboardingModal() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              <span>Continue with Google</span>
+              <span>{isGoogleLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
             </button>
           </div>
         )}
-      </div>
-    )}
-
-    {/* Google Account Chooser Modal (Browser Preview Fallback) */}
-    {showGooglePicker && (
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9999,
-          background: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px'
-        }}
-        onClick={() => setShowGooglePicker(false)}
-      >
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '380px',
-            borderRadius: '24px',
-            background: 'var(--surface)',
-            border: '1px solid var(--line)',
-            padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px'
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <b style={{ fontSize: '16px', color: 'var(--ink)' }}>Choose an account</b>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowGooglePicker(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-            >
-              <Icon name="x" size={18} />
-            </button>
-          </div>
-
-          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
-            to continue to <strong style={{ color: 'var(--ink)' }}>Ridingo</strong>
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[
-              { name: 'Anurag K M', email: 'anuragkm@gmail.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100' },
-              { name: 'Ridingo Member', email: 'member@ridingo.com', avatar: null }
-            ].map((acc, i) => (
-              <div
-                key={i}
-                onClick={() => handleSelectGoogleAccount(acc)}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '14px',
-                  border: '1.5px solid var(--line)',
-                  background: 'var(--card)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--ink)', color: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px', overflow: 'hidden' }}>
-                  {acc.avatar ? <img src={acc.avatar} alt={acc.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : acc.name[0]}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <b style={{ fontSize: '13.5px', color: 'var(--ink)', display: 'block' }}>{acc.name}</b>
-                  <span style={{ fontSize: '12px', color: 'var(--muted)', display: 'block' }}>{acc.email}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     )}
   </div>

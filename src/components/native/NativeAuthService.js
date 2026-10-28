@@ -8,6 +8,7 @@
  */
 
 import { Platform } from 'react-native';
+import { performGoogleSignIn } from '../../services/googleAuthUnified';
 
 // Optional Supabase client import if configured in project
 let supabase = null;
@@ -78,7 +79,7 @@ export function configureGoogleSignIn({
  */
 export async function signInWithGoogle() {
   if (!GoogleSignin) {
-    throw new Error('Google Sign-In library is not installed. Run: npm install @react-native-google-signin/google-signin');
+    return await performGoogleSignIn();
   }
 
   try {

@@ -17,6 +17,7 @@ import NativePaymentSheet from './NativePaymentSheet';
 import AppSplashScreen from './AppSplashScreen';
 import { LightTheme, DarkTheme } from '../../styles/theme';
 import nativeStorage from '../../utils/nativeStorage';
+import { realtime } from '../../utils/realtime';
 
 export default function NativeUserApp() {
   const [isDark, setIsDark] = useState(() => {
@@ -142,6 +143,35 @@ export default function NativeUserApp() {
 
   const theme = isDark ? DarkTheme : LightTheme;
 
+
+  useEffect(() => {
+    const unsubAccept = realtime.on('TRIP_ACCEPTED', (data) => {
+      if (!data) return;
+      const targetId = data.tripId || data.id;
+      setTrips(prev => prev.map(t => {
+        if (t.id === targetId) {
+          return {
+            ...t,
+            status: 'accepted',
+            driver: data.driver || { name: 'Assigned Driver', phone: '+91 94471 23456', rating: '4.95' },
+            start_otp: data.startOtp || t.start_otp
+          };
+        }
+        return t;
+      }));
+      setActiveTrip(prev => (prev?.id === targetId ? {
+        ...prev,
+        status: 'accepted',
+        driver: data.driver || { name: 'Assigned Driver', phone: '+91 94471 23456', rating: '4.95' },
+        start_otp: data.startOtp || prev.start_otp
+      } : prev));
+    });
+
+    return () => {
+      if (typeof unsubAccept === 'function') unsubAccept();
+    };
+  }, []);
+
   const handleOpenBooking = (category = 'hourly') => {
     setBookingCategory(category);
     setBookingOpen(true);
@@ -153,13 +183,14 @@ export default function NativeUserApp() {
     setTrackingOpen(true);
   };
 
-  const handleSubmitBooking = (bookingData) => {
+    const handleSubmitBooking = (bookingData) => {
     const newTrip = {
       id: `TRIP-${Math.floor(1000 + Math.random() * 9000)}`,
       status: 'requested',
       pickup: bookingData.pickup,
       drop_loc: bookingData.destination || 'Destination',
       fare: bookingData.estimatedFare,
+      advance: bookingData.advanceAmount || Math.round((bookingData.estimatedFare || 500) * 0.3),
       start_otp: String(Math.floor(1000 + Math.random() * 9000)),
       eta_minutes: 8,
       driver: {
@@ -168,10 +199,23 @@ export default function NativeUserApp() {
         rating: '5.0',
         tripsCount: '150',
       },
+      when_ts: Date.now(),
     };
     setTrips([newTrip, ...trips]);
     setActiveTrip(newTrip);
     setTrackingOpen(true);
+
+    // Broadcast across realtime hub to driver app
+    realtime.requestRide(newTrip);
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      try {
+        fetch(`${window.location.origin}/api/trips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newTrip)
+        }).catch(() => {});
+      } catch (_) {}
+    }
   };
 
   const handleCancelTrip = (trip) => {
@@ -184,6 +228,7 @@ export default function NativeUserApp() {
           text: 'Yes, Cancel',
           style: 'destructive',
           onPress: () => {
+            realtime.cancelRide(trip.id);
             setTrips(trips.filter(t => t.id !== trip.id));
             setTrackingOpen(false);
           },

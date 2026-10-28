@@ -27,3 +27,4 @@ dist/
 **/ios/App/DerivedData/
 *.ipa
 *.xcarchive
+.server_trips_store.json

@@ -85,6 +85,54 @@ function checkRateLimit(ip, isAsset) {
   return { allowed: true, remaining: limit - bucket.count, limit };
 }
 
+
+// ============================================================================
+// Server-Side Realtime Dispatch Bus & Trips Data Store
+// ============================================================================
+const TRIPS_STORE_FILE = path.join(ROOT_DIR, '.server_trips_store.json');
+let serverTrips = new Map();
+const sseClients = new Set();
+
+// Load initial trips from store file if exists
+try {
+  if (fs.existsSync(TRIPS_STORE_FILE)) {
+    const raw = fs.readFileSync(TRIPS_STORE_FILE, 'utf8');
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      arr.forEach(t => serverTrips.set(String(t.id), t));
+    }
+  }
+} catch (_) {}
+
+function persistTripsToDisk() {
+  try {
+    const list = Array.from(serverTrips.values());
+    fs.writeFileSync(TRIPS_STORE_FILE, JSON.stringify(list, null, 2), 'utf8');
+  } catch (_) {}
+}
+
+function broadcastSse(type, payload, senderId) {
+  const msg = JSON.stringify({ type, payload, senderId, timestamp: Date.now() });
+  for (const client of sseClients) {
+    try {
+      client.write(`data: ${msg}\n\n`);
+    } catch (_) {
+      sseClients.delete(client);
+    }
+  }
+}
+
+// Keep SSE connections alive with comment ping every 15s
+setInterval(() => {
+  for (const client of sseClients) {
+    try {
+      client.write(': keepalive\n\n');
+    } catch (_) {
+      sseClients.delete(client);
+    }
+  }
+}, 15000);
+
 function createRequestHandler(defaultApp) {
   return function requestHandler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -129,8 +177,8 @@ function createRequestHandler(defaultApp) {
       return;
     }
 
-    // 5. Server-Side Rate Limiting
-    const rateCheck = checkRateLimit(clientIp, isAsset);
+    // 5. Server-Side Rate Limiting (exempt /api/ endpoints for realtime events)
+    const rateCheck = reqPath.startsWith('/api/') ? { allowed: true, limit: 1000, remaining: 999 } : checkRateLimit(clientIp, isAsset);
     res.setHeader('X-RateLimit-Limit', String(rateCheck.limit));
     res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
 
@@ -160,6 +208,138 @@ function createRequestHandler(defaultApp) {
 
     const primaryDir = isDriverReq ? DRIVER_WWW : USER_WWW;
     const secondaryDir = isDriverReq ? USER_WWW : DRIVER_WWW;
+
+
+    // Handle CORS preflight options
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+        'Access-Control-Max-Age': '86400'
+      });
+      res.end();
+      return;
+    }
+
+    // 1. Server-Sent Events stream: /api/events or /api/realtime
+    if (reqPath === '/api/events' || reqPath === '/api/realtime') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.write(': connected\n\n');
+      sseClients.add(res);
+
+      req.on('close', () => {
+        sseClients.delete(res);
+      });
+      return;
+    }
+
+    // 2. Realtime dispatch broadcast: POST /api/dispatch
+    if (reqPath === '/api/dispatch' && req.method === 'POST') {
+      let bodyStr = '';
+      req.on('data', chunk => { bodyStr += chunk; });
+      req.on('end', () => {
+        try {
+          const body = JSON.parse(bodyStr || '{}');
+          const type = body.type || 'dispatch';
+          const payload = body.payload || body.data || body;
+          const senderId = body.senderId || 'anon';
+
+          if (type === 'TRIP_REQUESTED' && payload && payload.id) {
+            serverTrips.set(String(payload.id), payload);
+            persistTripsToDisk();
+          } else if (type === 'TRIP_ACCEPTED' && payload && (payload.tripId || payload.id)) {
+            const tId = String(payload.tripId || payload.id);
+            if (serverTrips.has(tId)) {
+              const existing = serverTrips.get(tId);
+              serverTrips.set(tId, { ...existing, status: 'accepted', driver: payload.driver, otp: payload.startOtp });
+              persistTripsToDisk();
+            }
+          }
+
+          broadcastSse(type, payload, senderId);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, clients: sseClients.size }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+
+    // 3. Trips query: GET /api/trips
+    if (reqPath === '/api/trips' && req.method === 'GET') {
+      const list = Array.from(serverTrips.values()).sort((a, b) => (b.when_ts || 0) - (a.when_ts || 0));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(list));
+      return;
+    }
+
+    // 4. Create trip: POST /api/trips
+    if (reqPath === '/api/trips' && req.method === 'POST') {
+      let bodyStr = '';
+      req.on('data', chunk => { bodyStr += chunk; });
+      req.on('end', () => {
+        try {
+          const trip = JSON.parse(bodyStr || '{}');
+          if (!trip.id) {
+            trip.id = 'TRP-' + Math.floor(1000 + Math.random() * 9000);
+          }
+          if (!trip.status) trip.status = 'requested';
+          if (!trip.when_ts) trip.when_ts = Date.now();
+
+          serverTrips.set(String(trip.id), trip);
+          persistTripsToDisk();
+
+          broadcastSse('TRIP_REQUESTED', trip, trip.by_who || 'user');
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, trip }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid trip payload' }));
+        }
+      });
+      return;
+    }
+
+    // 5. Update trip: POST /api/trips/:id or PATCH /api/trips/:id
+    if (reqPath.startsWith('/api/trips/') && (req.method === 'PATCH' || req.method === 'POST')) {
+      const tripId = reqPath.split('/api/trips/')[1].split('/')[0].split('?')[0];
+      let bodyStr = '';
+      req.on('data', chunk => { bodyStr += chunk; });
+      req.on('end', () => {
+        try {
+          const updates = JSON.parse(bodyStr || '{}');
+          const existing = serverTrips.get(String(tripId)) || { id: tripId };
+          const updatedTrip = { ...existing, ...updates, updated_at: new Date().toISOString() };
+          serverTrips.set(String(tripId), updatedTrip);
+          persistTripsToDisk();
+
+          if (updates.status === 'accepted') {
+            broadcastSse('TRIP_ACCEPTED', updatedTrip, updates.driver_id || 'driver');
+          } else if (updates.status === 'cancelled') {
+            broadcastSse('TRIP_CANCELLED', { tripId, ...updates }, 'system');
+          } else if (updates.status === 'completed') {
+            broadcastSse('TRIP_COMPLETED', updatedTrip, 'system');
+          } else {
+            broadcastSse('TRIP_UPDATED', updatedTrip, 'system');
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, trip: updatedTrip }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to update trip' }));
+        }
+      });
+      return;
+    }
 
     // Handle HTML routes
     if (reqPath === '/' || reqPath === '' || reqPath === '/user' || reqPath === '/driver') {

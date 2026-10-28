@@ -830,12 +830,12 @@ export function AppProvider({ children }) {
   // Sync trips from Supabase database table with strict authorization scoping
   const syncTripsFromSupabase = async () => {
     try {
-      if (!supabase || typeof supabase.from !== 'function') return;
 
       const isCurrentDriverApp =
         window.RIDINGO_TARGET === 'driver' ||
         viewRef.current === 'driver' ||
         (typeof window !== 'undefined' && (
+          window.location.port === '5174' ||
           window.location.search.includes('view=driver') ||
           window.location.search.includes('app=driver') ||
           window.location.hash.includes('driver') ||
@@ -849,7 +849,17 @@ export function AppProvider({ children }) {
           localStorage.getItem('ridingo_admin_auth') === 'true'
         ));
 
-      let query = supabase.from('trips').select('*').order('when_ts', { ascending: false }).limit(25);
+      // 1. Query local server API for instant cross-port sync (5173 <-> 5174)
+      let serverTripsData = [];
+      if (typeof window !== 'undefined' && typeof fetch === 'function') {
+        try {
+          const sRes = await fetch(`${window.location.origin}/api/trips`);
+          if (sRes.ok) {
+            serverTripsData = await sRes.json();
+          }
+        } catch (_) {}
+      }
+      let query = (supabase && typeof supabase.from === 'function') ? supabase.from('trips').select('*').order('when_ts', { ascending: false }).limit(25) : null;
 
       if (isCurrentAdmin) {
         // Authenticated admin can view platform trips for dispatch telemetry
@@ -879,7 +889,19 @@ export function AppProvider({ children }) {
         }
       }
 
-      const { data, error } = await query;
+      let data = null; let error = null;
+      if (query) {
+        try {
+          const qRes = await query;
+          data = qRes.data;
+          error = qRes.error;
+        } catch (e) { error = e; }
+      }
+      // Merge local server trips if Supabase is offline or quota exceeded
+      if (Array.isArray(serverTripsData) && serverTripsData.length > 0) {
+        data = [...serverTripsData, ...(Array.isArray(data) ? data : [])];
+        error = null;
+      }
 
       if (!error && Array.isArray(data) && data.length > 0) {
         const mapped = data.map(mapSupabaseRowToTrip).filter(Boolean);
@@ -920,6 +942,7 @@ export function AppProvider({ children }) {
           window.RIDINGO_TARGET === 'driver' ||
           viewRef.current === 'driver' ||
           (typeof window !== 'undefined' && (
+            window.location.port === '5174' ||
             window.location.search.includes('view=driver') ||
             window.location.search.includes('app=driver') ||
             window.location.hash.includes('driver') ||
@@ -2070,8 +2093,19 @@ export function AppProvider({ children }) {
       paymentId: pId
     };
 
-    // Helper to persist full trip record in Supabase database
+    // Helper to persist full trip record in Supabase database & local server API
     const persistTripToSupabase = async (tripObj) => {
+      // 1. Persist to local server API (immediate cross-port delivery!)
+      if (typeof window !== 'undefined' && typeof fetch === 'function') {
+        try {
+          fetch(`${window.location.origin}/api/trips`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(tripObj)
+          }).catch(() => {});
+        } catch (_) {}
+      }
+
       try {
         if (!supabase || typeof supabase.from !== 'function') return;
         const row = {
@@ -2138,6 +2172,17 @@ export function AppProvider({ children }) {
   };
 
   const updateTripStatusInSupabase = async (tripId, status, extra = {}) => {
+    // 1. Update on local server API
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      try {
+        fetch(`${window.location.origin}/api/trips/${tripId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, ...extra })
+        }).catch(() => {});
+      } catch (_) {}
+    }
+
     try {
       if (!supabase || typeof supabase.from !== 'function') return;
       const safeExtra = { ...extra };
