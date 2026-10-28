@@ -4087,7 +4087,19 @@ export default function DriverApp() {
                   {filtered.map((t, idx) => {
                     const c = CATS[t.cat] || CATS.hourly;
                     const isOpen = expandedHistoryTripId === t.id;
-                    const destName = cleanLocationName(t.drop_loc) || cleanLocationName(t.pickup) || `${c.name} trip`;
+
+                    // Strictly truncate location at second comma (only for this history section) as requested
+                    const formatShortHistoryLocation = (loc) => {
+                      const cleaned = cleanLocationName(loc);
+                      if (!cleaned) return '';
+                      const parts = cleaned.split(',');
+                      if (parts.length >= 2) {
+                        return `${parts[0].trim()}, ${parts[1].trim()}`;
+                      }
+                      return cleaned;
+                    };
+
+                    const destName = formatShortHistoryLocation(t.drop_loc) || formatShortHistoryLocation(t.pickup) || `${c.name} trip`;
                     const fare = Number(t.fare) || 600;
                     const driverEarn = Math.round(fare * 0.70);
                     const platformFee = fare - driverEarn;
@@ -4120,6 +4132,7 @@ export default function DriverApp() {
                           border: isOpen ? '1.5px solid var(--ink, #0B0B0C)' : '1px solid var(--line, #E2E8F0)',
                           padding: '12px 14px',
                           width: '100%',
+                          maxWidth: '100%',
                           boxSizing: 'border-box',
                           overflow: 'hidden',
                           boxShadow: isOpen ? '0 4px 18px rgba(0, 0, 0, 0.08)' : '0 1px 4px rgba(0, 0, 0, 0.02)',
@@ -4163,6 +4176,7 @@ export default function DriverApp() {
 
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <b
+                              title={cleanLocationName(t.drop_loc) || cleanLocationName(t.pickup)}
                               style={{
                                 fontSize: '14px',
                                 fontWeight: 700,
@@ -4228,20 +4242,27 @@ export default function DriverApp() {
                             display: 'grid',
                             gridTemplateRows: isOpen ? '1fr' : '0fr',
                             transition: 'grid-template-rows 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            width: '100%',
+                            minWidth: 0,
+                            boxSizing: 'border-box'
                           }}
                         >
                           <div
                             style={{
                               minHeight: 0,
+                              minWidth: 0,
+                              width: '100%',
+                              boxSizing: 'border-box',
+                              overflow: 'hidden',
                               opacity: isOpen ? 1 : 0,
                               transform: isOpen ? 'translateY(0)' : 'translateY(-6px)',
                               transition: 'opacity 0.25s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)'
                             }}
                           >
-                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--line, #E2E8F0)' }}>
+                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--line, #E2E8F0)', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
                               {/* Passenger Profile Card */}
-                              <div style={{ marginBottom: '8px' }}>
+                              <div style={{ marginBottom: '8px', width: '100%', minWidth: 0 }}>
                                 <ContactProfileCard
                                   name={t.rider?.name || 'Customer'}
                                   role="Passenger / Car Owner"
@@ -4260,19 +4281,46 @@ export default function DriverApp() {
                                   background: 'var(--field, #F8FAFC)',
                                   borderRadius: '12px',
                                   border: '1px solid var(--line, #E2E8F0)',
-                                  boxSizing: 'border-box'
+                                  boxSizing: 'border-box',
+                                  width: '100%',
+                                  minWidth: 0,
+                                  overflow: 'hidden'
                                 }}
                               >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', minWidth: 0 }}>
                                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16A34A', flexShrink: 0 }} />
-                                  <span style={{ fontSize: '12px', color: 'var(--ink, #0F172A)', fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {cleanLocationName(t.pickup)}
+                                  <span
+                                    title={cleanLocationName(t.pickup)}
+                                    style={{
+                                      fontSize: '12px',
+                                      color: 'var(--ink, #0F172A)',
+                                      fontWeight: 650,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      flex: 1,
+                                      minWidth: 0
+                                    }}
+                                  >
+                                    {formatShortHistoryLocation(t.pickup)}
                                   </span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', width: '100%', minWidth: 0 }}>
                                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#DC2626', flexShrink: 0 }} />
-                                  <span style={{ fontSize: '12px', color: 'var(--ink, #0F172A)', fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {cleanLocationName(t.drop_loc) || 'City Route · Stays with you'}
+                                  <span
+                                    title={cleanLocationName(t.drop_loc)}
+                                    style={{
+                                      fontSize: '12px',
+                                      color: 'var(--ink, #0F172A)',
+                                      fontWeight: 650,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      flex: 1,
+                                      minWidth: 0
+                                    }}
+                                  >
+                                    {formatShortHistoryLocation(t.drop_loc) || 'City Route · Stays with you'}
                                   </span>
                                 </div>
                                 <div
@@ -4284,18 +4332,20 @@ export default function DriverApp() {
                                     paddingTop: '8px',
                                     borderTop: '1px solid var(--line, #E2E8F0)',
                                     fontSize: '11px',
-                                    color: 'var(--muted, #64748B)'
+                                    color: 'var(--muted, #64748B)',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
                                   }}
                                 >
-                                  <span>Distance: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.distanceText || '12.4 km'}</b></span>
-                                  <span>Estimated: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.durationText || '28 mins'}</b></span>
-                                  <span>Car: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.car?.model || 'Sedan'} ({t.trans || t.car?.trans || 'Automatic'})</b></span>
+                                  <span style={{ whiteSpace: 'nowrap' }}>Distance: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.distanceText || '12.4 km'}</b></span>
+                                  <span style={{ whiteSpace: 'nowrap' }}>Estimated: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.durationText || '28 mins'}</b></span>
+                                  <span style={{ whiteSpace: 'nowrap' }}>Car: <b style={{ color: 'var(--ink, #0F172A)' }}>{t.car?.model || 'Sedan'} ({t.trans || t.car?.trans || 'Automatic'})</b></span>
                                 </div>
                               </div>
 
                               {/* Pre-Trip Vehicle Condition Images Gallery (Driver's Real Taken Photos) */}
-                              <div style={{ margin: '8px 0' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                              <div style={{ margin: '8px 0', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', width: '100%' }}>
                                   <b style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--muted, #64748B)' }}>
                                     Vehicle Inspection Photos
                                   </b>
@@ -4314,7 +4364,9 @@ export default function DriverApp() {
                                       overflowX: 'auto',
                                       paddingBottom: '2px',
                                       scrollbarWidth: 'none',
-                                      msOverflowStyle: 'none'
+                                      msOverflowStyle: 'none',
+                                      width: '100%',
+                                      boxSizing: 'border-box'
                                     }}
                                   >
                                     {realPhotos.map((imgUrl, pIdx) => (
@@ -4352,7 +4404,7 @@ export default function DriverApp() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'var(--field, #F8FAFC)', border: '1px dashed var(--line, #CBD5E1)', fontSize: '11px', color: 'var(--muted, #64748B)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <div style={{ padding: '8px 10px', borderRadius: '10px', background: 'var(--field, #F8FAFC)', border: '1px dashed var(--line, #CBD5E1)', fontSize: '11px', color: 'var(--muted, #64748B)', display: 'flex', alignItems: 'center', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
                                     <Icon name="camera" size={13} />
                                     <span>No pre-trip inspection photos recorded for this trip.</span>
                                   </div>
@@ -4366,31 +4418,34 @@ export default function DriverApp() {
                                 poster={realPhotos[0] || null}
                               />
 
-                              {/* Driver Earnings & Fare Breakdown - Responsive 3-Column Box */}
+                              {/* Driver Earnings & Fare Breakdown - Responsive 3-Column Box (Strictly fits all devices) */}
                               <div
                                 style={{
                                   display: 'grid',
-                                  gridTemplateColumns: 'repeat(3, 1fr)',
-                                  gap: '6px',
-                                  padding: '8px 10px',
+                                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                  gap: '4px',
+                                  padding: '8px 6px',
                                   background: 'var(--field, #F8FAFC)',
                                   borderRadius: '12px',
                                   border: '1px solid var(--line, #E2E8F0)',
                                   textAlign: 'center',
-                                  margin: '6px 0 2px'
+                                  margin: '6px 0 2px',
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  overflow: 'hidden'
                                 }}
                               >
-                                <div>
-                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block' }}>Total Fare</span>
-                                  <b style={{ fontSize: '12.5px', color: 'var(--ink, #0F172A)' }}>₹{fare}</b>
+                                <div style={{ minWidth: 0, padding: '0 2px' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Total Fare</span>
+                                  <b style={{ fontSize: '12.5px', color: 'var(--ink, #0F172A)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>₹{fare}</b>
                                 </div>
-                                <div style={{ borderLeft: '1px solid var(--line, #E2E8F0)', borderRight: '1px solid var(--line, #E2E8F0)' }}>
-                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block' }}>Fee (30%)</span>
-                                  <b style={{ fontSize: '12.5px', color: 'var(--muted, #64748B)' }}>₹{platformFee}</b>
+                                <div style={{ borderLeft: '1px solid var(--line, #E2E8F0)', borderRight: '1px solid var(--line, #E2E8F0)', minWidth: 0, padding: '0 2px' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Fee (30%)</span>
+                                  <b style={{ fontSize: '12.5px', color: 'var(--muted, #64748B)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>₹{platformFee}</b>
                                 </div>
-                                <div>
-                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block' }}>Earning (70%)</span>
-                                  <b style={{ fontSize: '12.5px', color: '#16A34A', fontWeight: 800 }}>₹{driverEarn}</b>
+                                <div style={{ minWidth: 0, padding: '0 2px' }}>
+                                  <span style={{ fontSize: '10px', color: 'var(--muted, #64748B)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Earning (70%)</span>
+                                  <b style={{ fontSize: '12.5px', color: '#16A34A', fontWeight: 800, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>₹{driverEarn}</b>
                                 </div>
                               </div>
                             </div>

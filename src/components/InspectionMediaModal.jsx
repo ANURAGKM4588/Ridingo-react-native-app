@@ -239,43 +239,54 @@ export default function InspectionMediaModal({
         touchAction: 'none'
       }}
     >
-      {/* Top Header Bar - Minimal: Only Close Button & Photo Counter */}
+      {/* Top Header Bar - Safe Area Inset & Device Notch Aware */}
       <div
         style={{
-          height: '54px',
-          padding: '0 16px',
+          paddingTop: 'max(calc(env(safe-area-inset-top, 0px) + 14px), 24px)',
+          paddingBottom: '14px',
+          paddingLeft: 'max(calc(env(safe-area-inset-left, 0px) + 16px), 16px)',
+          paddingRight: 'max(calc(env(safe-area-inset-right, 0px) + 16px), 16px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           zIndex: 20,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)'
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 75%, rgba(0,0,0,0) 100%)',
+          boxSizing: 'border-box',
+          width: '100%',
+          flexShrink: 0
         }}
       >
-        <span style={{ color: '#FFFFFF', fontSize: '13.5px', fontWeight: 650, letterSpacing: '0.01em' }}>
+        <span style={{ color: '#FFFFFF', fontSize: '14px', fontWeight: 650, letterSpacing: '0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
           {type === 'image' && images.length > 0
             ? `${currentIndex + 1} of ${images.length}`
             : title || 'Vehicle Inspection'}
         </span>
 
-        {/* Minimal Circle Close Button */}
+        {/* Minimal Circle Close Button with proper safe touch targets */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
           style={{
-            width: '36px',
-            height: '36px',
+            width: '40px',
+            height: '40px',
             borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.18)',
-            border: 'none',
+            background: 'rgba(255, 255, 255, 0.22)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            flexShrink: 0,
+            touchAction: 'manipulation',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            transition: 'background 0.18s ease, transform 0.18s ease'
           }}
         >
-          <Icon name="x" size={19} />
+          <Icon name="x" size={20} />
         </button>
       </div>
 
