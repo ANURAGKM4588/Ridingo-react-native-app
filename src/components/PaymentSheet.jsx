@@ -256,7 +256,7 @@ const NaviLogo = () => (
       fontWeight: 900,
       color: '#0A192F',
       letterSpacing: '-0.4px',
-      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
+      fontFamily: 'var(--font-display, "Manrope", sans-serif)'
     }}>
       navi
     </span>
@@ -280,7 +280,7 @@ const BhimLogo = () => (
       fontWeight: 900,
       color: '#FFFFFF',
       letterSpacing: '0.2px',
-      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
+      fontFamily: 'var(--font-display, "Manrope", sans-serif)'
     }}>
       BHIM
     </span>
@@ -304,7 +304,7 @@ const SuperMoneyLogo = () => (
       fontWeight: 900,
       color: '#FFFFFF',
       letterSpacing: '-0.3px',
-      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
+      fontFamily: 'var(--font-display, "Manrope", sans-serif)'
     }}>
       super
     </span>
@@ -328,7 +328,7 @@ const JupiterLogo = () => (
       fontWeight: 900,
       color: '#FFFFFF',
       letterSpacing: '-0.5px',
-      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
+      fontFamily: 'var(--font-display, "Manrope", sans-serif)'
     }}>
       J
     </span>
@@ -352,7 +352,7 @@ const AmazonPayLogo = () => (
       fontWeight: 800,
       color: '#FF9900',
       letterSpacing: '-0.2px',
-      fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
+      fontFamily: 'var(--font-display, "Manrope", sans-serif)'
     }}>
       pay
     </span>

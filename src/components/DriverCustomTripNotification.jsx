@@ -152,7 +152,7 @@ export default function DriverCustomTripNotification({ trip, onAccept, onDecline
           boxShadow: theme.shadow,
           boxSizing: 'border-box',
           color: theme.textPrimary,
-          fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
+          fontFamily: 'var(--font-body, "Manrope", sans-serif)',
           userSelect: 'none',
           position: 'relative',
           overflow: 'hidden',

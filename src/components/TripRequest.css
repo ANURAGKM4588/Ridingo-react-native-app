@@ -21,7 +21,7 @@
 
   width: 100%;
   color: var(--text);
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-body, 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
   box-sizing: border-box;
   transition: background 180ms ease, color 180ms ease;
 }

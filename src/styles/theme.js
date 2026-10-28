@@ -79,14 +79,14 @@ export const DarkTheme = {
 
 export const Typography = {
   fontDisplay: Platform.select({
-    ios: 'Plus Jakarta Sans',
-    android: 'PlusJakartaSans-Bold',
-    default: 'Plus Jakarta Sans',
+    ios: 'Manrope',
+    android: 'Manrope-Bold',
+    default: 'Manrope',
   }),
   fontBody: Platform.select({
-    ios: 'Plus Jakarta Sans',
-    android: 'PlusJakartaSans-Regular',
-    default: 'Plus Jakarta Sans',
+    ios: 'Manrope',
+    android: 'Manrope-Regular',
+    default: 'Manrope',
   }),
   fontMono: Platform.select({
     ios: 'DM Mono',

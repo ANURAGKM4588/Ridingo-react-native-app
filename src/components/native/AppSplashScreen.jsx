@@ -44,7 +44,7 @@ function ensureExternalResourcesLoaded() {
     const link = document.createElement('link');
     link.id = googleFontsId;
     link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=DM+Mono:wght@500&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Mono:wght@500&display=swap';
     document.head.appendChild(link);
   }
 

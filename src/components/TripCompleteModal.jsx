@@ -496,7 +496,7 @@ Status: COMPLETED & PAID ✅`;
               color: '#111827',
               margin: '0 0 4px',
               letterSpacing: '-0.4px',
-              fontFamily: 'var(--font-display, "Plus Jakarta Sans", sans-serif)'
+              fontFamily: 'var(--font-display, "Manrope", sans-serif)'
             }}
           >
             Trip complete
