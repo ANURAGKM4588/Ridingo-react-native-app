@@ -3857,12 +3857,13 @@ export default function DriverApp() {
                 }}
               >
                 <div
+                  className="empty-state-icon"
                   style={{
-                    width: '54px',
-                    height: '54px',
+                    width: '50px',
+                    height: '50px',
                     borderRadius: '50%',
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    color: '#3B82F6',
+                    background: 'var(--surface-soft, #F1F5F9)',
+                    color: 'var(--muted, #64748B)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -4009,12 +4010,13 @@ export default function DriverApp() {
                 }}
               >
                 <div
+                  className="empty-state-icon"
                   style={{
-                    width: '54px',
-                    height: '54px',
+                    width: '50px',
+                    height: '50px',
                     borderRadius: '50%',
-                    background: 'rgba(139, 92, 246, 0.1)',
-                    color: '#8B5CF6',
+                    background: 'var(--surface-soft, #F1F5F9)',
+                    color: 'var(--muted, #64748B)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -4030,12 +4032,22 @@ export default function DriverApp() {
                 </div>
                 <div
                   style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--muted)'
+                    fontSize: '14.5px',
+                    fontWeight: 750,
+                    color: 'var(--ink)',
+                    marginBottom: '4px'
                   }}
                 >
                   No upcoming scheduled trips.
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: 'var(--muted)',
+                    fontWeight: 500
+                  }}
+                >
+                  Advance reservations will appear here.
                 </div>
               </div>
             )}
