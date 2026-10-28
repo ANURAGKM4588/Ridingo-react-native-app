@@ -13,6 +13,9 @@ import {
 import NativeIcon from './NativeIcon';
 import { LightTheme, DarkTheme, Typography, Radii, Shadows } from '../../styles/theme';
 import { getLocationUpToFirstComma } from '../../utils/locationCleaner';
+import ExpandableBookingForm from './ExpandableBookingForm';
+
+export { default as ExpandableBookingForm } from './ExpandableBookingForm';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -30,6 +33,7 @@ export default function NativeBookingSheet({
   onClose,
   onSubmitBooking,
   isDark = false,
+  useExpandableForm = true,
 }) {
   const theme = isDark ? DarkTheme : LightTheme;
 
@@ -103,7 +107,21 @@ export default function NativeBookingSheet({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollBody}>
+          {useExpandableForm ? (
+            <ExpandableBookingForm
+              initialPickup={pickup}
+              initialDestination={destination}
+              category={category}
+              isDark={isDark}
+              onConfirmBooking={(bookingPayload) => {
+                if (onSubmitBooking) onSubmitBooking(bookingPayload);
+                if (onClose) onClose();
+              }}
+              containerStyle={{ paddingHorizontal: 20, paddingBottom: 28 }}
+            />
+          ) : (
+            <>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollBody}>
             {/* Location Fields */}
             <View style={[styles.inputGroup, { backgroundColor: theme.field }]}>
               {/* Pickup */}
@@ -253,7 +271,10 @@ export default function NativeBookingSheet({
                 Confirm Driver Request
               </Text>
             </TouchableOpacity>
-          </View>
+
+            </View>
+          </>
+        )}
         </View>
       </View>
     </Modal>
